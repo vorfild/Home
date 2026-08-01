@@ -15,6 +15,8 @@ from app.models import (  # noqa: F401
     Household,
     LoginAttempt,
     Session,
+    ShoppingItem,
+    ShoppingList,
     SystemMetadata,
     TaskAssignment,
     TaskDefinition,

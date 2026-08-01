@@ -50,6 +50,37 @@ export type TaskItem = {
   review_comment: string | null;
 };
 
+export type ShoppingItem = {
+  id: string;
+  list_id: string;
+  name: string;
+  quantity: string;
+  unit: string;
+  category: string;
+  note: string | null;
+  added_by_id: string | null;
+  recipient_id: string | null;
+  purchased: boolean;
+  photo_id: string | null;
+  price: string | null;
+  store: string | null;
+  proposal_status: "pending" | "accepted" | "rejected";
+  duplicate_warning: boolean;
+};
+
+export type ShoppingList = {
+  id: string;
+  title: string;
+  store: string | null;
+  scheduled_at: string | null;
+  responsible_id: string | null;
+  status: "no_date" | "planned" | "in_progress" | "completed";
+  comment: string | null;
+  completed_at: string | null;
+  items: ShoppingItem[];
+  total: string | null;
+};
+
 let csrfToken = "";
 
 function csrfFromCookie(): string {

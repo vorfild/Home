@@ -4,6 +4,7 @@ import { ChangePasswordScreen, LoginScreen, TabletScreen } from "./components/au
 import { FamilyPage } from "./components/family-page";
 import { MobileNavigation, Page, Sidebar } from "./components/navigation";
 import { SetupWizard } from "./components/setup-wizard";
+import { ShoppingPage } from "./components/shopping-page";
 import { TasksPage } from "./components/tasks-page";
 import { TodayDashboard } from "./components/today-dashboard";
 import {
@@ -121,8 +122,10 @@ export function App() {
         />
       ) : page === "tasks" ? (
         <TasksPage currentUser={user} />
+      ) : page === "shopping" ? (
+        <ShoppingPage currentUser={user} />
       ) : page === "today" ? (
-        <TodayDashboard user={user} />
+        <TodayDashboard user={user} onOpenShopping={() => setPage("shopping")} />
       ) : (
         <main className="main-content module-page">
           <h1>{ru.nav[page]}</h1>

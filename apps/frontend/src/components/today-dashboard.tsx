@@ -1,7 +1,7 @@
 import { CalendarDays, Check, Plus } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import { api, jsonBody, TaskItem, User } from "../lib/api";
+import { api, jsonBody, ShoppingList, TaskItem, User } from "../lib/api";
 import { formatToday } from "../lib/date";
 import { ru } from "../lib/i18n";
 
@@ -12,16 +12,28 @@ function dueLabel(task: TaskItem): string {
   );
 }
 
-export function TodayDashboard({ user }: { user: User }) {
+export function TodayDashboard({
+  user,
+  onOpenShopping,
+}: {
+  user: User;
+  onOpenShopping: () => void;
+}) {
   const storedScope = localStorage.getItem("domovoy.today.scope") === "all" ? "all" : "mine";
   const [scope, setScope] = useState<"mine" | "all">(storedScope);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [draft, setDraft] = useState("");
+  const [shopping, setShopping] = useState<ShoppingList[]>([]);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
-      setTasks(await api<TaskItem[]>(`/tasks/today?scope=${scope}`));
+      const [taskData, shoppingData] = await Promise.all([
+        api<TaskItem[]>(`/tasks/today?scope=${scope}`),
+        api<ShoppingList[]>("/shopping/today"),
+      ]);
+      setTasks(taskData);
+      setShopping(shoppingData);
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : ru.common.error);
@@ -174,6 +186,27 @@ export function TodayDashboard({ user }: { user: User }) {
               </div>
             </div>
           </section>
+          {shopping.map((list) => (
+            <section className="card shopping-card" key={list.id}>
+              <h2>{list.title}</h2>
+              <p>
+                {list.scheduled_at
+                  ? new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(
+                      new Date(list.scheduled_at),
+                    )
+                  : ""}
+              </p>
+              <p className="shopping-count">{list.items.length} позиций</p>
+              <ul>
+                {list.items.slice(0, 4).map((item) => (
+                  <li key={item.id}>{item.name}</li>
+                ))}
+              </ul>
+              <button type="button" onClick={onOpenShopping}>
+                {ru.today.openList}
+              </button>
+            </section>
+          ))}
         </aside>
       </section>
     </main>

@@ -1,4 +1,5 @@
 from app.models.identity import Absence, Household, LoginAttempt, Session, TrustedDevice, User
+from app.models.shopping import ShoppingItem, ShoppingList
 from app.models.system_metadata import SystemMetadata
 from app.models.tasks import (
     TaskAssignment,
@@ -17,6 +18,8 @@ __all__ = [
     "SystemMetadata",
     "TrustedDevice",
     "User",
+    "ShoppingItem",
+    "ShoppingList",
     "TaskAssignment",
     "TaskDefinition",
     "TaskHistory",

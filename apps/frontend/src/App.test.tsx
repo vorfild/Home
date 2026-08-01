@@ -43,6 +43,7 @@ describe("Domovoy identity flow", () => {
       if (path.endsWith("/auth/me")) return response(200, { user, csrf_token: "csrf" });
       if (path.endsWith("/family/members")) return response(200, [user]);
       if (path.includes("/tasks/today")) return response(200, []);
+      if (path.endsWith("/shopping/today")) return response(200, []);
       if (path.endsWith("/tasks"))
         return response(201, {
           id: "task-1",
@@ -101,6 +102,7 @@ describe("Domovoy identity flow", () => {
       if (path.endsWith("/auth/me")) return response(200, { user, csrf_token: "csrf" });
       if (path.endsWith("/family/members")) return response(200, [user]);
       if (path.includes("/tasks/today")) return response(200, []);
+      if (path.endsWith("/shopping/today")) return response(200, []);
       if (path.endsWith("/tasks"))
         return response(201, {
           id: "task-1",
