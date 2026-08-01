@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
@@ -12,6 +22,7 @@ from app.models.identity import new_id
 
 class TaskDefinition(TimestampMixin, Base):
     __tablename__ = "task_definitions"
+    __table_args__ = (Index("uq_task_definitions_source", "source_type", "source_id", unique=True),)
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     household_id: Mapped[str] = mapped_column(
@@ -30,6 +41,8 @@ class TaskDefinition(TimestampMixin, Base):
     requires_adult_review: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     current_queue_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    source_type: Mapped[str | None] = mapped_column(String(40), index=True)
+    source_id: Mapped[str | None] = mapped_column(String(36), index=True)
 
     assignments: Mapped[list[TaskAssignment]] = relationship(
         back_populates="task", cascade="all, delete-orphan", order_by="TaskAssignment.position"

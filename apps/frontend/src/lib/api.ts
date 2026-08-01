@@ -81,6 +81,52 @@ export type ShoppingList = {
   total: string | null;
 };
 
+export type StorageNode = {
+  id: string;
+  parent_id: string | null;
+  name: string;
+  node_type: string;
+  sort_order: number;
+  path: { id: string; name: string }[];
+  has_qr: boolean;
+};
+
+export type StorageItem = {
+  id: string;
+  node_id: string;
+  name: string;
+  photo_ids: string[];
+  primary_photo_id: string | null;
+  quantity: string | null;
+  unit: string | null;
+  category: string | null;
+  owner_id: string | null;
+  description: string | null;
+  tags: string[];
+  item_status: string;
+  placed_at: string | null;
+  location_since: string;
+  last_used_at: string | null;
+  value: string | null;
+  purchased_on: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  serial_number: string | null;
+  warranty_until: string | null;
+  comment: string | null;
+  review_at: string | null;
+  review_status: "none" | "active" | "decision_required";
+  path: { id: string; name: string }[];
+};
+
+export type StorageContents = {
+  node: StorageNode | null;
+  children: StorageNode[];
+  items: StorageItem[];
+};
+
+export type StorageQr = { node_id: string; token: string; path: string };
+
 let csrfToken = "";
 
 function csrfFromCookie(): string {

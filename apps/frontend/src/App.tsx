@@ -5,6 +5,7 @@ import { FamilyPage } from "./components/family-page";
 import { MobileNavigation, Page, Sidebar } from "./components/navigation";
 import { SetupWizard } from "./components/setup-wizard";
 import { ShoppingPage } from "./components/shopping-page";
+import { StoragePage } from "./components/storage-page";
 import { TasksPage } from "./components/tasks-page";
 import { TodayDashboard } from "./components/today-dashboard";
 import {
@@ -23,7 +24,9 @@ type Screen = "loading" | "setup" | "login" | "tablet" | "app";
 export function App() {
   const [screen, setScreen] = useState<Screen>("loading");
   const [user, setUser] = useState<User | null>(null);
-  const [page, setPage] = useState<Page>("family");
+  const [page, setPage] = useState<Page>(() =>
+    window.location.pathname.startsWith("/storage/qr/") ? "storage" : "family",
+  );
   const [tabletTrusted, setTabletTrusted] = useState(false);
   const [startupError, setStartupError] = useState("");
 
@@ -124,6 +127,15 @@ export function App() {
         <TasksPage currentUser={user} />
       ) : page === "shopping" ? (
         <ShoppingPage currentUser={user} />
+      ) : page === "storage" ? (
+        <StoragePage
+          currentUser={user}
+          initialQrToken={
+            window.location.pathname.startsWith("/storage/qr/")
+              ? window.location.pathname.split("/").pop()
+              : undefined
+          }
+        />
       ) : page === "today" ? (
         <TodayDashboard user={user} onOpenShopping={() => setPage("shopping")} />
       ) : (

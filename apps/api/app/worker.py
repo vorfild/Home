@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import SessionFactory, engine
 from app.models.identity import LoginAttempt, Session
+from app.services.storage import process_storage_timers
 
 logger = logging.getLogger("domovoy.worker")
 
@@ -39,6 +40,11 @@ async def clean_identity_records() -> None:
         )
 
 
+async def process_domain_schedules() -> None:
+    async with SessionFactory.begin() as session:
+        await process_storage_timers(session)
+
+
 async def run_worker() -> None:
     settings = get_settings()
     stop_event = asyncio.Event()
@@ -52,6 +58,7 @@ async def run_worker() -> None:
         try:
             await check_database()
             await clean_identity_records()
+            await process_domain_schedules()
             logger.debug("worker_heartbeat")
         except Exception:
             logger.exception("worker_database_check_failed")
