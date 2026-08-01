@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     files_dir: Path = Path("var/files")
     backups_dir: Path = Path("var/backups")
     worker_poll_interval_seconds: int = Field(default=30, ge=5, le=3600)
+    session_ttl_hours: int = Field(default=24 * 30, ge=1, le=24 * 365)
+    cookie_secure: bool = False
+    login_attempt_limit: int = Field(default=5, ge=3, le=20)
+    login_attempt_window_minutes: int = Field(default=15, ge=1, le=120)
 
     @field_validator("app_timezone")
     @classmethod

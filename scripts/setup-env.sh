@@ -4,6 +4,10 @@ set -eu
 project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 env_file="$project_root/.env"
 app_address=${1:-http://localhost}
+cookie_secure=true
+case "$app_address" in
+  http://*) cookie_secure=false ;;
+esac
 
 if [ -e "$env_file" ]; then
   echo ".env already exists; refusing to overwrite it." >&2
@@ -27,6 +31,8 @@ umask 077
   echo "POSTGRES_USER=domovoy"
   echo "POSTGRES_PASSWORD=$database_password"
   echo "SECRET_KEY=$secret_key"
+  echo "COOKIE_SECURE=$cookie_secure"
+  echo "SESSION_TTL_HOURS=720"
   echo "LOG_LEVEL=INFO"
   echo "WORKER_POLL_INTERVAL_SECONDS=30"
 } > "$env_file"

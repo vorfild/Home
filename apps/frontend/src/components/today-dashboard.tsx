@@ -19,8 +19,8 @@ type Task = {
 const initialTasks: Task[] = [
   {
     id: 1,
-    title: ru.tasks.waterFlowers,
-    person: ru.people.anna,
+    title: ru.today.tasks.waterFlowers,
+    person: ru.today.people.anna,
     initial: "А",
     when: "18:00",
     color: "mint",
@@ -28,8 +28,8 @@ const initialTasks: Task[] = [
   },
   {
     id: 2,
-    title: ru.tasks.takeTrash,
-    person: ru.people.alexey,
+    title: ru.today.tasks.takeTrash,
+    person: ru.today.people.alexey,
     initial: "А",
     when: "до 20:00",
     color: "blue",
@@ -37,19 +37,19 @@ const initialTasks: Task[] = [
   },
   {
     id: 3,
-    title: ru.tasks.vacuumLivingRoom,
-    person: ru.people.misha,
+    title: ru.today.tasks.vacuumLivingRoom,
+    person: ru.today.people.misha,
     initial: "М",
-    when: ru.today,
+    when: ru.nav.today,
     color: "pale-blue",
     completed: true,
   },
   {
     id: 4,
-    title: ru.tasks.changeTowels,
-    person: ru.people.olga,
+    title: ru.today.tasks.changeTowels,
+    person: ru.today.people.olga,
     initial: "О",
-    when: ru.today,
+    when: ru.nav.today,
     color: "mint",
     completed: false,
   },
@@ -83,7 +83,7 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: (id: number) => voi
   );
 }
 
-export function TodayDashboard() {
+export function TodayDashboard({ userName }: { userName: string }) {
   const [tasks, setTasks] = useState(initialTasks);
   const [draft, setDraft] = useState("");
   const completeCount = useMemo(() => tasks.filter((task) => task.completed).length, [tasks]);
@@ -102,9 +102,9 @@ export function TodayDashboard() {
       {
         id: Math.max(0, ...current.map((task) => task.id)) + 1,
         title,
-        person: ru.people.alexey,
+        person: userName,
         initial: "А",
-        when: ru.today,
+        when: ru.nav.today,
         color: "blue",
         completed: false,
       },
@@ -117,7 +117,9 @@ export function TodayDashboard() {
       <header className="page-header">
         <div>
           <p className="mobile-brand">{ru.brand}</p>
-          <h1>{ru.greeting}</h1>
+          <h1>
+            {ru.today.greeting}, {userName}
+          </h1>
           <p className="date-line">
             <CalendarDays aria-hidden="true" />
             <span>{formatToday()}</span>
@@ -125,16 +127,16 @@ export function TodayDashboard() {
         </div>
         <button className="primary-button" type="button">
           <Plus aria-hidden="true" />
-          <span>{ru.addTask}</span>
+          <span>{ru.today.addTask}</span>
         </button>
       </header>
 
       <section className="dashboard-grid" aria-label="Сводка на сегодня">
         <section className="card today-card">
           <div className="card-heading">
-            <h2>{ru.today}</h2>
+            <h2>{ru.today.title}</h2>
             <span className="filter-chip">
-              {ru.all} <b>{tasks.length}</b>
+              {ru.today.all} <b>{tasks.length}</b>
             </span>
           </div>
           <div className="task-list">
@@ -150,13 +152,13 @@ export function TodayDashboard() {
             }}
           >
             <label className="sr-only" htmlFor="quick-task">
-              {ru.quickTaskPlaceholder}
+              {ru.today.quickTaskPlaceholder}
             </label>
             <input
               id="quick-task"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder={ru.quickTaskPlaceholder}
+              placeholder={ru.today.quickTaskPlaceholder}
             />
             <button type="submit" aria-label="Добавить быстрое дело">
               <Plus aria-hidden="true" />
@@ -167,12 +169,12 @@ export function TodayDashboard() {
         <aside className="summary-column">
           <section className="card progress-card">
             <div className="progress-copy">
-              <h2>{ru.dailyProgress}</h2>
+              <h2>{ru.today.dailyProgress}</h2>
               <strong>
                 {completeCount} из {tasks.length}
               </strong>
               <span>
-                {Math.round((completeCount / tasks.length) * 100)}% {ru.completed}
+                {Math.round((completeCount / tasks.length) * 100)}% {ru.today.completed}
               </span>
               <div className="progress-track" aria-hidden="true">
                 <span style={{ width: `${(completeCount / tasks.length) * 100}%` }} />
@@ -187,16 +189,16 @@ export function TodayDashboard() {
           </section>
 
           <section className="card shopping-card">
-            <h2>{ru.shoppingToday}</h2>
-            <p>{ru.plannedFor}</p>
-            <p className="shopping-count">{ru.positions}</p>
+            <h2>{ru.today.shoppingToday}</h2>
+            <p>{ru.today.plannedFor}</p>
+            <p className="shopping-count">{ru.today.positions}</p>
             <ul>
               <li>Молоко</li>
               <li>Яблоки</li>
               <li>Средство для посуды</li>
             </ul>
             <button type="button">
-              <span>{ru.openList}</span>
+              <span>{ru.today.openList}</span>
               <ChevronRight aria-hidden="true" />
             </button>
           </section>

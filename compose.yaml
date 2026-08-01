@@ -28,7 +28,9 @@ services:
       APP_ENV: production
       APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:-domovoy-local-only}@database:5432/${POSTGRES_DB:-domovoy}
-      SECRET_KEY: ${SECRET_KEY:-stage-1-not-used}
+      SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-server-install}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-720}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FILES_DIR: /data/files
       BACKUPS_DIR: /data/backups
@@ -56,7 +58,9 @@ services:
       APP_ENV: production
       APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:-domovoy-local-only}@database:5432/${POSTGRES_DB:-domovoy}
-      SECRET_KEY: ${SECRET_KEY:-stage-1-not-used}
+      SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-server-install}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-720}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FILES_DIR: /data/files
       BACKUPS_DIR: /data/backups

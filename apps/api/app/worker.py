@@ -4,12 +4,14 @@ import argparse
 import asyncio
 import logging
 import signal
+from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import text
+from sqlalchemy import delete, or_, text
 
 from app.core.config import get_settings
 from app.core.logging import configure_logging
-from app.db.session import engine
+from app.db.session import SessionFactory, engine
+from app.models.identity import LoginAttempt, Session
 
 logger = logging.getLogger("domovoy.worker")
 
@@ -17,6 +19,24 @@ logger = logging.getLogger("domovoy.worker")
 async def check_database() -> None:
     async with engine.connect() as connection:
         await connection.execute(text("SELECT 1"))
+
+
+async def clean_identity_records() -> None:
+    now = datetime.now(UTC)
+    retention_cutoff = now - timedelta(days=7)
+    attempts_cutoff = now - timedelta(days=1)
+    async with SessionFactory.begin() as session:
+        await session.execute(
+            delete(Session).where(
+                or_(
+                    Session.expires_at < retention_cutoff,
+                    Session.revoked_at < retention_cutoff,
+                )
+            )
+        )
+        await session.execute(
+            delete(LoginAttempt).where(LoginAttempt.attempted_at < attempts_cutoff)
+        )
 
 
 async def run_worker() -> None:
@@ -31,6 +51,7 @@ async def run_worker() -> None:
     while not stop_event.is_set():
         try:
             await check_database()
+            await clean_identity_records()
             logger.debug("worker_heartbeat")
         except Exception:
             logger.exception("worker_database_check_failed")
