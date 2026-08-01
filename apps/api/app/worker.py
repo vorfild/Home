@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.db.session import SessionFactory, engine
 from app.models.identity import LoginAttempt, Session
+from app.services.home import process_home_schedules
 from app.services.storage import process_storage_timers
 
 logger = logging.getLogger("domovoy.worker")
@@ -43,6 +44,7 @@ async def clean_identity_records() -> None:
 async def process_domain_schedules() -> None:
     async with SessionFactory.begin() as session:
         await process_storage_timers(session)
+        await process_home_schedules(session)
 
 
 async def run_worker() -> None:

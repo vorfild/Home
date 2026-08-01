@@ -1931,6 +1931,177 @@ h2 {
   }
 }
 
+.home-tabs {
+  display: flex;
+  margin-bottom: 22px;
+  overflow-x: auto;
+}
+
+.home-tabs button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.home-tabs button.is-active {
+  border-color: var(--blue-strong);
+  color: var(--blue-strong);
+  font-weight: 700;
+}
+
+.home-page .page-header .secondary-button svg,
+.home-page .primary-button svg {
+  width: 18px;
+}
+
+.home-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.overview-stat {
+  display: grid;
+  min-height: 155px;
+  padding: 20px;
+  gap: 8px;
+}
+
+.overview-stat svg {
+  width: 30px;
+  color: var(--blue-strong);
+}
+
+.overview-stat strong {
+  font-size: 32px;
+}
+
+.overview-stat span {
+  color: var(--muted);
+}
+
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+
+.section-title-row h2 {
+  margin: 0;
+}
+
+.section-title-row .primary-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.home-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.equipment-card,
+.maintenance-card,
+.history-card,
+.meter-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  padding: 18px;
+  gap: 14px;
+}
+
+.equipment-card > svg,
+.maintenance-card > svg,
+.history-card > svg {
+  width: 25px;
+  color: var(--blue-strong);
+}
+
+.home-card-list h3,
+.home-card-list p {
+  margin: 0;
+}
+
+.home-card-list p,
+.home-card-list small {
+  color: var(--muted);
+}
+
+.status-pill {
+  display: inline-flex;
+  width: max-content;
+  margin-top: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #346d4b;
+  background: #e6f6ec;
+  font-size: 12px;
+}
+
+.status-pill.due {
+  color: #995d1c;
+  background: #fff2de;
+}
+
+.meter-expanded {
+  grid-column: 1 / -1;
+}
+
+.meter-chart {
+  display: flex;
+  align-items: end;
+  height: 110px;
+  margin: 12px 0;
+  padding: 10px;
+  gap: 4px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.meter-chart i {
+  min-width: 8px;
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: var(--blue-strong);
+}
+
+@media (max-width: 900px) {
+  .home-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .equipment-card,
+  .maintenance-card,
+  .history-card,
+  .meter-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .equipment-card > small,
+  .maintenance-card > .status-pill,
+  .maintenance-card > button,
+  .history-card > small,
+  .meter-card > strong,
+  .meter-card > button {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .home-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .header-actions,
 .storage-tools,
 .bulk-toolbar {

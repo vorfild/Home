@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -93,11 +94,15 @@ class TaskRead(ApiModel):
     completed_by_id: str | None
     completed_at: datetime | None
     review_comment: str | None
+    source_type: str | None
 
 
 class TaskComplete(BaseModel):
     photo_id: str | None = None
     completed_subtask_ids: list[str] = Field(default_factory=list)
+    comment: str | None = Field(default=None, max_length=5000)
+    actual_cost: Decimal | None = Field(default=None, ge=0)
+    photo_ids: list[str] = Field(default_factory=list)
 
 
 class TaskReview(BaseModel):

@@ -28,6 +28,7 @@ class Household(TimestampMixin, Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     singleton_key: Mapped[int] = mapped_column(default=1, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    meters_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     language: Mapped[str] = mapped_column(String(10), default="ru", nullable=False)
     timezone: Mapped[str] = mapped_column(String(64), nullable=False)
     notification_settings: Mapped[dict[str, Any]] = mapped_column(

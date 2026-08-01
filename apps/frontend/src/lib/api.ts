@@ -48,6 +48,7 @@ export type TaskItem = {
   completed_by_id: string | null;
   completed_at: string | null;
   review_comment: string | null;
+  source_type: string | null;
 };
 
 export type ShoppingItem = {
@@ -126,6 +127,88 @@ export type StorageContents = {
 };
 
 export type StorageQr = { node_id: string; token: string; path: string };
+
+export type Equipment = {
+  id: string;
+  storage_item_id: string | null;
+  name: string;
+  photo_ids: string[];
+  category: string | null;
+  location: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  serial_number: string | null;
+  acquired_on: string | null;
+  warranty_until: string | null;
+  document_ids: string[];
+  condition: string;
+  responsible_id: string | null;
+};
+
+export type MaintenancePlan = {
+  id: string;
+  equipment_id: string | null;
+  title: string;
+  interval_days: number;
+  previous_on: string | null;
+  next_on: string;
+  responsible_id: string | null;
+  checklist: string[];
+  materials: string[];
+  estimated_cost: string | null;
+  requires_photo: boolean;
+  is_active: boolean;
+  open_task_id: string | null;
+};
+
+export type RepairRecord = {
+  id: string;
+  equipment_id: string | null;
+  plan_id: string | null;
+  task_instance_id: string | null;
+  record_type: "repair" | "maintenance";
+  title: string;
+  performed_on: string;
+  comment: string | null;
+  actual_cost: string | null;
+  photo_ids: string[];
+  attachment_ids: string[];
+  keep_forever: boolean;
+  purge_after: string | null;
+};
+
+export type Meter = {
+  id: string;
+  meter_type: string;
+  unit: string;
+  serial_number: string | null;
+  location: string | null;
+  last_value: string | null;
+  next_submission_on: string | null;
+  responsible_id: string | null;
+  reset_sequence: number;
+  is_active: boolean;
+};
+
+export type MeterReading = {
+  id: string;
+  meter_id: string;
+  value: string;
+  read_on: string;
+  photo_id: string | null;
+  comment: string | null;
+  consumption: string | null;
+  decrease_warning: boolean;
+  reset_sequence: number;
+};
+
+export type HomeOverview = {
+  meters_enabled: boolean;
+  maintenance_due: MaintenancePlan[];
+  warranties_expiring: Equipment[];
+  meter_deadlines: Meter[];
+  equipment_attention: Equipment[];
+};
 
 let csrfToken = "";
 

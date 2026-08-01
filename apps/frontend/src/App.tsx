@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ChangePasswordScreen, LoginScreen, TabletScreen } from "./components/auth-screens";
 import { FamilyPage } from "./components/family-page";
+import { HomePage } from "./components/home-page";
 import { MobileNavigation, Page, Sidebar } from "./components/navigation";
 import { SetupWizard } from "./components/setup-wizard";
 import { ShoppingPage } from "./components/shopping-page";
@@ -136,6 +137,8 @@ export function App() {
               : undefined
           }
         />
+      ) : page === "home" ? (
+        <HomePage currentUser={user} />
       ) : page === "today" ? (
         <TodayDashboard user={user} onOpenShopping={() => setPage("shopping")} />
       ) : (

@@ -94,6 +94,7 @@ def read_task(instance: TaskInstance) -> TaskRead:
         completed_by_id=instance.completed_by_id,
         completed_at=instance.completed_at,
         review_comment=instance.review_comment,
+        source_type=task.source_type,
     )
 
 
@@ -301,6 +302,11 @@ async def complete_task(
     completed_at = now_utc()
     instance.completed_by_id = auth.user.id
     instance.completion_photo_id = payload.photo_id
+    instance.completion_comment = payload.comment.strip() if payload.comment else None
+    instance.completion_cost = payload.actual_cost
+    instance.completion_photo_ids = list(
+        dict.fromkeys(payload.photo_ids + ([payload.photo_id] if payload.photo_id else []))
+    )
     if auth.user.role == UserRole.CHILD and instance.task.requires_adult_review:
         instance.status = "awaiting_review"
         action = "submitted_for_review"
@@ -313,6 +319,10 @@ async def complete_task(
                 instance.task.queue
             )
         await build_next_instance(db, instance.task, instance, completed_at)
+        if instance.task.source_type == "maintenance":
+            from app.services.home import record_completed_maintenance
+
+            await record_completed_maintenance(db, instance.task, instance, completed_at)
     db.add(
         TaskHistory(
             task_id=instance.task.id,
@@ -347,6 +357,10 @@ async def review_task(
                 instance.task.queue
             )
         await build_next_instance(db, instance.task, instance, happened_at)
+        if instance.task.source_type == "maintenance":
+            from app.services.home import record_completed_maintenance
+
+            await record_completed_maintenance(db, instance.task, instance, happened_at)
     else:
         instance.status = "rejected"
         instance.completed_at = None

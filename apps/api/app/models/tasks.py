@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -10,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -123,6 +125,9 @@ class TaskInstance(TimestampMixin, Base):
     completed_by_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completion_photo_id: Mapped[str | None] = mapped_column(String(36))
+    completion_comment: Mapped[str | None] = mapped_column(Text)
+    completion_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    completion_photo_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     review_comment: Mapped[str | None] = mapped_column(String(500))
     subtask_state: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict, nullable=False)
 
