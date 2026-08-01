@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=78"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "domovoy-api"
+version = "0.1.0"
+description = "API and background worker for the Domovoy family home app"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+addopts = "-q --strict-config --strict-markers"
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+exclude = ["alembic"]
+
+[[tool.mypy.overrides]]
+module = ["pythonjsonlogger.*"]
+ignore_missing_imports = true

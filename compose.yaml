@@ -1,0 +1,128 @@
+name: ${COMPOSE_PROJECT_NAME:-domovoy}
+
+services:
+  database:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-domovoy}
+      POSTGRES_USER: ${POSTGRES_USER:-domovoy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-domovoy-local-only}
+      TZ: ${APP_TIMEZONE:-Europe/Moscow}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    volumes:
+      - database_data:/var/lib/postgresql/data
+    networks:
+      - private
+
+  api:
+    build:
+      context: ./apps/api
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:-domovoy-local-only}@database:5432/${POSTGRES_DB:-domovoy}
+      SECRET_KEY: ${SECRET_KEY:-stage-1-not-used}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      FILES_DIR: /data/files
+      BACKUPS_DIR: /data/backups
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    volumes:
+      - user_files:/data/files
+      - backup_data:/data/backups
+    networks:
+      - private
+
+  worker:
+    build:
+      context: ./apps/api
+    command: ["python", "-m", "app.worker"]
+    restart: unless-stopped
+    environment:
+      APP_ENV: production
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:-domovoy-local-only}@database:5432/${POSTGRES_DB:-domovoy}
+      SECRET_KEY: ${SECRET_KEY:-stage-1-not-used}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      FILES_DIR: /data/files
+      BACKUPS_DIR: /data/backups
+      WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-30}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.worker", "--healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - user_files:/data/files
+      - backup_data:/data/backups
+    networks:
+      - private
+
+  frontend:
+    build:
+      context: ./apps/frontend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 5s
+    networks:
+      - private
+
+  proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      APP_ADDRESS: ${APP_ADDRESS:-http://localhost}
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - private
+
+networks:
+  private:
+    driver: bridge
+
+volumes:
+  database_data:
+  user_files:
+  backup_data:
+  caddy_data:
+  caddy_config:
