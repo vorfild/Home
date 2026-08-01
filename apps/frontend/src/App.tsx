@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { ChangePasswordScreen, LoginScreen, TabletScreen } from "./components/auth-screens";
 import { CalendarPage } from "./components/calendar-page";
@@ -22,6 +22,9 @@ import {
   UserPreference,
 } from "./lib/api";
 import { ru } from "./lib/i18n";
+import { useRealtime } from "./lib/realtime";
+import { syncShoppingQueue } from "./lib/shopping-offline";
+import { syncTaskQueue } from "./lib/task-offline";
 
 type Screen = "loading" | "setup" | "login" | "tablet" | "app";
 
@@ -33,6 +36,7 @@ export function App() {
   );
   const [tabletTrusted, setTabletTrusted] = useState(false);
   const [startupError, setStartupError] = useState("");
+  const realtimeRevision = useRealtime(screen === "app" && user !== null);
 
   const boot = useCallback(async () => {
     setStartupError("");
@@ -76,6 +80,16 @@ export function App() {
         document.documentElement.dataset.density = preference.density;
       })
       .catch(() => undefined);
+  }, [screen, user]);
+
+  useEffect(() => {
+    if (screen !== "app" || !user) return;
+    const synchronize = () => {
+      void Promise.all([syncTaskQueue(), syncShoppingQueue()]);
+    };
+    synchronize();
+    window.addEventListener("online", synchronize);
+    return () => window.removeEventListener("online", synchronize);
   }, [screen, user]);
 
   function authenticated(auth: AuthResponse) {
@@ -131,52 +145,54 @@ export function App() {
   return (
     <div className="app-shell">
       <Sidebar active={page} user={user} onNavigate={setPage} onLogout={() => void logout()} />
-      {page === "family" ? (
-        <FamilyPage
-          currentUser={user}
-          tabletTrusted={tabletTrusted}
-          onTabletRegistered={() => setTabletTrusted(true)}
-          onEnterTablet={() => void logout("tablet")}
-        />
-      ) : page === "tasks" ? (
-        <TasksPage currentUser={user} />
-      ) : page === "shopping" ? (
-        <ShoppingPage currentUser={user} />
-      ) : page === "storage" ? (
-        <StoragePage
-          currentUser={user}
-          initialQrToken={
-            window.location.pathname.startsWith("/storage/qr/")
-              ? window.location.pathname.split("/").pop()
-              : undefined
-          }
-        />
-      ) : page === "home" ? (
-        <HomePage currentUser={user} />
-      ) : page === "calendar" ? (
-        <CalendarPage
-          onToday={() => setPage("today")}
-          onOpen={(event) =>
-            setPage(
-              event.source_type === "task"
-                ? "tasks"
-                : event.source_type === "shopping"
-                  ? "shopping"
-                  : event.source_type === "storage"
-                    ? "storage"
-                    : "home",
-            )
-          }
-        />
-      ) : page === "settings" ? (
-        <SettingsPage currentUser={user} />
-      ) : page === "today" ? (
-        <TodayDashboard user={user} onOpenShopping={() => setPage("shopping")} />
-      ) : (
-        <main className="main-content module-page">
-          <h1>{ru.nav[page]}</h1>
-        </main>
-      )}
+      <Fragment key={`${page}-${realtimeRevision}`}>
+        {page === "family" ? (
+          <FamilyPage
+            currentUser={user}
+            tabletTrusted={tabletTrusted}
+            onTabletRegistered={() => setTabletTrusted(true)}
+            onEnterTablet={() => void logout("tablet")}
+          />
+        ) : page === "tasks" ? (
+          <TasksPage currentUser={user} />
+        ) : page === "shopping" ? (
+          <ShoppingPage currentUser={user} />
+        ) : page === "storage" ? (
+          <StoragePage
+            currentUser={user}
+            initialQrToken={
+              window.location.pathname.startsWith("/storage/qr/")
+                ? window.location.pathname.split("/").pop()
+                : undefined
+            }
+          />
+        ) : page === "home" ? (
+          <HomePage currentUser={user} />
+        ) : page === "calendar" ? (
+          <CalendarPage
+            onToday={() => setPage("today")}
+            onOpen={(event) =>
+              setPage(
+                event.source_type === "task"
+                  ? "tasks"
+                  : event.source_type === "shopping"
+                    ? "shopping"
+                    : event.source_type === "storage"
+                      ? "storage"
+                      : "home",
+              )
+            }
+          />
+        ) : page === "settings" ? (
+          <SettingsPage currentUser={user} />
+        ) : page === "today" ? (
+          <TodayDashboard user={user} onOpenShopping={() => setPage("shopping")} />
+        ) : (
+          <main className="main-content module-page">
+            <h1>{ru.nav[page]}</h1>
+          </main>
+        )}
+      </Fragment>
       <MobileNavigation
         active={page}
         user={user}

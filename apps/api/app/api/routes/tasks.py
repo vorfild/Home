@@ -327,6 +327,12 @@ async def complete_task(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> TaskRead:
     instance = await load_instance(db, instance_id, auth.user.household_id)
+    if (
+        payload.client_operation_id
+        and instance.completion_operation_id == payload.client_operation_id
+        and instance.status in {"completed", "awaiting_review"}
+    ):
+        return read_task(instance)
     if instance.status not in {"open", "rejected"}:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Дело уже обработано")
     if not can_complete(auth, instance):
@@ -350,6 +356,7 @@ async def complete_task(
     instance.completion_photo_ids = list(
         dict.fromkeys(payload.photo_ids + ([payload.photo_id] if payload.photo_id else []))
     )
+    instance.completion_operation_id = payload.client_operation_id
     if auth.user.role == UserRole.CHILD and instance.task.requires_adult_review:
         instance.status = "awaiting_review"
         action = "submitted_for_review"

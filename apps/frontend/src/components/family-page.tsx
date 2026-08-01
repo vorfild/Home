@@ -275,11 +275,21 @@ function MemberCard({
       )}
       {stats && (
         <div className="member-stats" aria-label="Сводка участника">
-          <span><strong>{stats.today_tasks}</strong> сегодня</span>
-          <span><strong>{stats.overdue_tasks}</strong> просрочено</span>
-          <span><strong>{stats.queue_tasks}</strong> очередь</span>
-          <span><strong>{stats.awaiting_review}</strong> проверка</span>
-          <span><strong>{stats.pending_requests}</strong> запросы</span>
+          <span>
+            <strong>{stats.today_tasks}</strong> сегодня
+          </span>
+          <span>
+            <strong>{stats.overdue_tasks}</strong> просрочено
+          </span>
+          <span>
+            <strong>{stats.queue_tasks}</strong> очередь
+          </span>
+          <span>
+            <strong>{stats.awaiting_review}</strong> проверка
+          </span>
+          <span>
+            <strong>{stats.pending_requests}</strong> запросы
+          </span>
         </div>
       )}
       {expanded && (

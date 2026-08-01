@@ -51,6 +51,9 @@ async def current_auth(
     if as_aware(stored.last_seen_at) < now_utc() - timedelta(minutes=5):
         stored.last_seen_at = now_utc()
         await db.commit()
+    request.state.household_id = stored.user.household_id
+    request.state.user_id = stored.user.id
+    request.state.sync_db = db
     return AuthContext(user=stored.user, session=stored)
 
 

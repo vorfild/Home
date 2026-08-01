@@ -3,6 +3,7 @@ from app.models.identity import Absence, Household, LoginAttempt, Session, Trust
 from app.models.preferences import Notification, PushSubscription, UserPreference
 from app.models.shopping import ShoppingItem, ShoppingList
 from app.models.storage import StorageItem, StorageNode
+from app.models.sync import EntityVersion, SyncConflict, SyncEvent, SyncOperation
 from app.models.system_metadata import SystemMetadata
 from app.models.tasks import (
     TaskAssignment,
@@ -33,6 +34,10 @@ __all__ = [
     "ShoppingList",
     "StorageItem",
     "StorageNode",
+    "EntityVersion",
+    "SyncConflict",
+    "SyncEvent",
+    "SyncOperation",
     "TaskAssignment",
     "TaskDefinition",
     "TaskHistory",

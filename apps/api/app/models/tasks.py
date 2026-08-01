@@ -128,6 +128,7 @@ class TaskInstance(TimestampMixin, Base):
     completion_comment: Mapped[str | None] = mapped_column(Text)
     completion_cost: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
     completion_photo_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    completion_operation_id: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     review_comment: Mapped[str | None] = mapped_column(String(500))
     subtask_state: Mapped[dict[str, bool]] = mapped_column(JSON, default=dict, nullable=False)
 

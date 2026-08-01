@@ -275,6 +275,39 @@ export type FamilyStats = {
   pending_requests: number;
 };
 
+export type SyncConflict = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  field_name: string;
+  base_version: number;
+  server_version: number;
+  server_value: unknown;
+  alternative_value: unknown;
+  proposed_by_id: string;
+  status: string;
+  created_at: string;
+};
+
+export type EntityConflictStatus = {
+  entity_type: string;
+  entity_id: string;
+  count: number;
+  latest_changed_at: string;
+  latest_actor_id: string;
+};
+
+export type SyncEvent = {
+  sequence: number;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  changed_fields: string[];
+  actor_id: string | null;
+  version: number | null;
+  created_at: string;
+};
+
 let csrfToken = "";
 
 function csrfFromCookie(): string {

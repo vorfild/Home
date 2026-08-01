@@ -98,6 +98,7 @@ class TaskRead(ApiModel):
 
 
 class TaskComplete(BaseModel):
+    client_operation_id: str | None = Field(default=None, min_length=8, max_length=64)
     photo_id: str | None = None
     completed_subtask_ids: list[str] = Field(default_factory=list)
     comment: str | None = Field(default=None, max_length=5000)

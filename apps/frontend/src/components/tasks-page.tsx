@@ -1,8 +1,15 @@
-import { Check, Plus, RotateCw } from "lucide-react";
+import { Check, Plus, RotateCw, TriangleAlert, WifiOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import { api, ApiError, jsonBody, TaskItem, User } from "../lib/api";
+import { api, ApiError, EntityConflictStatus, jsonBody, TaskItem, User } from "../lib/api";
 import { ru } from "../lib/i18n";
+import {
+  completeTaskOperation,
+  newOperationId,
+  pendingTaskCount,
+  queueTaskCompletion,
+  syncTaskQueue,
+} from "../lib/task-offline";
 
 type View = "active" | "completed" | "recurring";
 
@@ -35,16 +42,22 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [conflicts, setConflicts] = useState<EntityConflictStatus[]>([]);
+  const [offline, setOffline] = useState(!navigator.onLine);
+  const [pending, setPending] = useState(pendingTaskCount());
 
   const load = useCallback(async () => {
     setError("");
     try {
-      const [taskData, memberData] = await Promise.all([
+      const [taskData, memberData, conflictData] = await Promise.all([
         api<TaskItem[]>(`/tasks?view=${view}`),
         api<User[]>("/family/members"),
+        api<EntityConflictStatus[]>("/sync/conflicts/entities?entity_type=task"),
       ]);
       setTasks(taskData);
       setMembers(memberData.filter((member) => member.is_active));
+      setConflicts(conflictData);
+      setOffline(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : ru.common.error);
     }
@@ -52,6 +65,23 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const wentOffline = () => setOffline(true);
+    const wentOnline = () => {
+      setOffline(false);
+      void syncTaskQueue().then((count) => {
+        setPending(count);
+        void load();
+      });
+    };
+    window.addEventListener("offline", wentOffline);
+    window.addEventListener("online", wentOnline);
+    return () => {
+      window.removeEventListener("offline", wentOffline);
+      window.removeEventListener("online", wentOnline);
+    };
   }, [load]);
 
   const grouped = useMemo(() => {
@@ -66,15 +96,44 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
   async function complete(task: TaskItem) {
     setBusy(true);
     setError("");
+    const operationId = newOperationId();
+    const before = tasks;
+    const optimistic: TaskItem = {
+      ...task,
+      status:
+        task.requires_adult_review && currentUser.role === "child"
+          ? "awaiting_review"
+          : "completed",
+      completed_by_id: currentUser.id,
+      completed_at: new Date().toISOString(),
+    };
+    setTasks((items) => items.map((item) => (item.id === task.id ? optimistic : item)));
+    const operation = {
+      kind: "complete-task" as const,
+      operationId,
+      taskId: task.id,
+      completedSubtaskIds: task.subtasks.map((item) => item.id),
+    };
+    if (!navigator.onLine) {
+      queueTaskCompletion(operation);
+      setPending(pendingTaskCount());
+      setOffline(true);
+      setBusy(false);
+      return;
+    }
     try {
-      const updated = await api<TaskItem>(`/tasks/${task.id}/complete`, {
-        method: "POST",
-        ...jsonBody({ completed_subtask_ids: task.subtasks.map((item) => item.id) }),
-      });
+      const updated = await completeTaskOperation(task, operationId);
       setTasks((items) => items.map((item) => (item.id === task.id ? updated : item)));
       if (updated.status === "completed" && view === "active") await load();
     } catch (caught) {
-      setError(caught instanceof ApiError ? caught.message : ru.common.error);
+      if (!(caught instanceof ApiError)) {
+        queueTaskCompletion(operation);
+        setPending(pendingTaskCount());
+        setOffline(true);
+      } else {
+        setTasks(before);
+        setError(caught.message);
+      }
     } finally {
       setBusy(false);
     }
@@ -104,6 +163,13 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
           </button>
         )}
       </header>
+      {(offline || pending > 0) && (
+        <p className="offline-banner" role="status">
+          <WifiOff aria-hidden="true" />
+          {offline ? "Нет связи с сервером." : "Связь восстановлена."} Операций в очереди: {pending}
+          .
+        </p>
+      )}
       <div className="tabs" role="tablist" aria-label={ru.tasks.title}>
         {(["active", "completed", "recurring"] as const).map((item) => (
           <button
@@ -124,43 +190,55 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
           <section key={group} className="task-group">
             <h2>{group}</h2>
             <div className="card module-list">
-              {items.map((task) => (
-                <article className={`module-row priority-${task.priority}`} key={task.id}>
-                  <button
-                    className="task-checkbox"
-                    type="button"
-                    disabled={busy || !["open", "rejected"].includes(task.status)}
-                    onClick={() => void complete(task)}
-                    aria-label={`${ru.tasks.complete}: ${task.title}`}
+              {items.map((task) => {
+                const conflict = conflicts.find((item) => item.entity_id === task.definition_id);
+                return (
+                  <article
+                    className={`module-row priority-${task.priority}${conflict ? " sync-conflict" : ""}`}
+                    key={task.id}
                   >
-                    {task.status === "completed" && <Check aria-hidden="true" />}
-                  </button>
-                  <div className="module-row-copy">
-                    <strong>{task.title}</strong>
-                    <span>
-                      {task.category} · {whenLabel(task.due_at)}
-                      {task.room ? ` · ${task.room}` : ""}
-                    </span>
-                    {task.status === "awaiting_review" && <em>{ru.tasks.awaitingReview}</em>}
-                    {task.status === "rejected" && <em>{task.review_comment}</em>}
-                  </div>
-                  {task.repeat.kind !== "none" && (
-                    <span className="status-chip">
-                      <RotateCw aria-hidden="true" /> {ru.tasks.repeat}
-                    </span>
-                  )}
-                  {task.status === "awaiting_review" && currentUser.role !== "child" && (
-                    <div className="row-actions">
-                      <button type="button" onClick={() => void review(task, "approve")}>
-                        {ru.tasks.approve}
-                      </button>
-                      <button type="button" onClick={() => void review(task, "reject")}>
-                        {ru.tasks.reject}
-                      </button>
+                    <button
+                      className="task-checkbox"
+                      type="button"
+                      disabled={busy || !["open", "rejected"].includes(task.status)}
+                      onClick={() => void complete(task)}
+                      aria-label={`${ru.tasks.complete}: ${task.title}`}
+                    >
+                      {task.status === "completed" && <Check aria-hidden="true" />}
+                    </button>
+                    <div className="module-row-copy">
+                      <strong>{task.title}</strong>
+                      <span>
+                        {task.category} · {whenLabel(task.due_at)}
+                        {task.room ? ` · ${task.room}` : ""}
+                      </span>
+                      {task.status === "awaiting_review" && <em>{ru.tasks.awaitingReview}</em>}
+                      {task.status === "rejected" && <em>{task.review_comment}</em>}
+                      {conflict && (
+                        <em className="conflict-label">
+                          <TriangleAlert aria-hidden="true" /> Конфликт синхронизации · изменено{" "}
+                          {new Date(conflict.latest_changed_at).toLocaleString("ru-RU")}
+                        </em>
+                      )}
                     </div>
-                  )}
-                </article>
-              ))}
+                    {task.repeat.kind !== "none" && (
+                      <span className="status-chip">
+                        <RotateCw aria-hidden="true" /> {ru.tasks.repeat}
+                      </span>
+                    )}
+                    {task.status === "awaiting_review" && currentUser.role !== "child" && (
+                      <div className="row-actions">
+                        <button type="button" onClick={() => void review(task, "approve")}>
+                          {ru.tasks.approve}
+                        </button>
+                        <button type="button" onClick={() => void review(task, "reject")}>
+                          {ru.tasks.reject}
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           </section>
         ))}

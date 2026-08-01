@@ -1,9 +1,18 @@
-import { CalendarDays, Check, Plus } from "lucide-react";
+import { CalendarDays, Check, Plus, WifiOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { api, jsonBody, ShoppingList, TaskItem, User } from "../lib/api";
 import { formatToday } from "../lib/date";
 import { ru } from "../lib/i18n";
+import {
+  cacheToday,
+  cachedToday,
+  completeTaskOperation,
+  newOperationId,
+  pendingTaskCount,
+  queueTaskCompletion,
+  syncTaskQueue,
+} from "../lib/task-offline";
 
 function dueLabel(task: TaskItem): string {
   if (!task.due_at) return ru.tasks.noTime;
@@ -25,6 +34,8 @@ export function TodayDashboard({
   const [draft, setDraft] = useState("");
   const [shopping, setShopping] = useState<ShoppingList[]>([]);
   const [error, setError] = useState("");
+  const [offline, setOffline] = useState(!navigator.onLine);
+  const [pending, setPending] = useState(pendingTaskCount());
 
   const load = useCallback(async () => {
     try {
@@ -33,15 +44,40 @@ export function TodayDashboard({
         api<ShoppingList[]>("/shopping/today"),
       ]);
       setTasks(taskData);
+      cacheToday(user.id, scope, taskData);
       setShopping(shoppingData);
       setError("");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : ru.common.error);
+      const saved = cachedToday(user.id, scope);
+      if (saved) {
+        setTasks(saved);
+        setOffline(true);
+        setError("");
+      } else {
+        setError(caught instanceof Error ? caught.message : ru.common.error);
+      }
     }
-  }, [scope]);
+  }, [scope, user.id]);
 
   useEffect(() => {
     void Promise.resolve().then(load);
+  }, [load]);
+
+  useEffect(() => {
+    const wentOffline = () => setOffline(true);
+    const wentOnline = () => {
+      setOffline(false);
+      void syncTaskQueue().then((count) => {
+        setPending(count);
+        void load();
+      });
+    };
+    window.addEventListener("offline", wentOffline);
+    window.addEventListener("online", wentOnline);
+    return () => {
+      window.removeEventListener("offline", wentOffline);
+      window.removeEventListener("online", wentOnline);
+    };
   }, [load]);
 
   const open = useMemo(
@@ -63,14 +99,39 @@ export function TodayDashboard({
   }
 
   async function complete(task: TaskItem) {
+    const operationId = newOperationId();
+    const before = tasks;
+    const optimistic: TaskItem = {
+      ...task,
+      status: task.requires_adult_review && user.role === "child" ? "awaiting_review" : "completed",
+      completed_by_id: user.id,
+      completed_at: new Date().toISOString(),
+    };
+    setTasks((items) => items.map((item) => (item.id === task.id ? optimistic : item)));
+    const operation = {
+      kind: "complete-task" as const,
+      operationId,
+      taskId: task.id,
+      completedSubtaskIds: task.subtasks.map((item) => item.id),
+    };
+    if (!navigator.onLine) {
+      queueTaskCompletion(operation);
+      setPending(pendingTaskCount());
+      setOffline(true);
+      return;
+    }
     try {
-      const updated = await api<TaskItem>(`/tasks/${task.id}/complete`, {
-        method: "POST",
-        ...jsonBody({ completed_subtask_ids: task.subtasks.map((item) => item.id) }),
-      });
+      const updated = await completeTaskOperation(task, operationId);
       setTasks((items) => items.map((item) => (item.id === task.id ? updated : item)));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : ru.common.error);
+      if (!(caught instanceof Error) || caught.name === "TypeError") {
+        queueTaskCompletion(operation);
+        setPending(pendingTaskCount());
+        setOffline(true);
+      } else {
+        setTasks(before);
+        setError(caught.message);
+      }
     }
   }
 
@@ -110,6 +171,13 @@ export function TodayDashboard({
           </p>
         </div>
       </header>
+      {(offline || pending > 0) && (
+        <p className="offline-banner" role="status">
+          <WifiOff aria-hidden="true" />
+          {offline ? "Офлайн: показана сохранённая версия." : "Синхронизация"} Операций в очереди:{" "}
+          {pending}.
+        </p>
+      )}
       <div className="scope-switch" role="group" aria-label={ru.today.scope}>
         <button className={scope === "mine" ? "is-active" : ""} onClick={() => chooseScope("mine")}>
           {ru.today.mine}

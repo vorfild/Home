@@ -113,7 +113,9 @@ export function HomePage({ currentUser }: { currentUser: User }) {
               <Wrench />
               <div>
                 <h3>{item.name}</h3>
-                <p>{[item.category, item.location].filter(Boolean).join(" · ") || "Без категории"}</p>
+                <p>
+                  {[item.category, item.location].filter(Boolean).join(" · ") || "Без категории"}
+                </p>
                 <span className={`status-pill ${item.condition}`}>{item.condition}</span>
               </div>
               {item.warranty_until && <small>Гарантия до {item.warranty_until}</small>}
@@ -129,7 +131,9 @@ export function HomePage({ currentUser }: { currentUser: User }) {
               <div>
                 <h3>{item.title}</h3>
                 <p>Следующее обслуживание: {item.next_on}</p>
-                <small>Каждые {item.interval_days} дней · {item.checklist.length} шагов</small>
+                <small>
+                  Каждые {item.interval_days} дней · {item.checklist.length} шагов
+                </small>
               </div>
               {item.open_task_id && <span className="status-pill due">Дело создано</span>}
               <button
@@ -168,7 +172,9 @@ export function HomePage({ currentUser }: { currentUser: User }) {
               <History />
               <div>
                 <h3>{item.title}</h3>
-                <p>{item.performed_on} · {item.record_type === "repair" ? "ремонт" : "обслуживание"}</p>
+                <p>
+                  {item.performed_on} · {item.record_type === "repair" ? "ремонт" : "обслуживание"}
+                </p>
               </div>
               <small>{item.keep_forever ? "Хранится бессрочно" : "Хранится 2 года"}</small>
             </article>
@@ -210,23 +216,47 @@ function Overview({ data }: { data: HomeOverview }) {
   );
 }
 
-function Collection({ title, onAdd, children }: { title: string; onAdd: () => void; children: ReactNode }) {
+function Collection({
+  title,
+  onAdd,
+  children,
+}: {
+  title: string;
+  onAdd: () => void;
+  children: ReactNode;
+}) {
   return (
     <section>
       <div className="section-title-row">
         <h2>{title}</h2>
-        <button className="primary-button" onClick={onAdd}><Plus /> Добавить</button>
+        <button className="primary-button" onClick={onAdd}>
+          <Plus /> Добавить
+        </button>
       </div>
       <div className="home-card-list">{children}</div>
     </section>
   );
 }
 
-function MeterCard({ meter, readings, onOpen, onSaved }: { meter: Meter; readings?: MeterReading[]; onOpen: () => void; onSaved: () => Promise<void> }) {
+function MeterCard({
+  meter,
+  readings,
+  onOpen,
+  onSaved,
+}: {
+  meter: Meter;
+  readings?: MeterReading[];
+  onOpen: () => void;
+  onSaved: () => Promise<void>;
+}) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
-    const body = { value: Number(data.get("value")), read_on: data.get("read_on"), accept_decrease: true };
+    const body = {
+      value: Number(data.get("value")),
+      read_on: data.get("read_on"),
+      accept_decrease: true,
+    };
     await api(`/home/meters/${meter.id}/readings`, { method: "POST", ...jsonBody(body) });
     await onSaved();
     onOpen();
@@ -235,17 +265,41 @@ function MeterCard({ meter, readings, onOpen, onSaved }: { meter: Meter; reading
   const max = Math.max(1, ...points.map((item) => Number(item.value)));
   return (
     <article className="module-card meter-card">
-      <div><h3>{meter.meter_type}</h3><p>{meter.location || "Место не указано"}</p></div>
-      <strong>{meter.last_value ?? "—"} {meter.unit}</strong>
-      <button className="secondary-button" onClick={onOpen}>История и график</button>
+      <div>
+        <h3>{meter.meter_type}</h3>
+        <p>{meter.location || "Место не указано"}</p>
+      </div>
+      <strong>
+        {meter.last_value ?? "—"} {meter.unit}
+      </strong>
+      <button className="secondary-button" onClick={onOpen}>
+        История и график
+      </button>
       {readings && (
         <div className="meter-expanded">
           <div className="meter-chart" aria-label="График показаний">
-            {points.map((item) => <i key={item.id} style={{ height: `${Math.max(8, Number(item.value) / max * 100)}%` }} title={`${item.read_on}: ${item.value}`} />)}
+            {points.map((item) => (
+              <i
+                key={item.id}
+                style={{ height: `${Math.max(8, (Number(item.value) / max) * 100)}%` }}
+                title={`${item.read_on}: ${item.value}`}
+              />
+            ))}
           </div>
           <form className="inline-form" onSubmit={(event) => void submit(event)}>
-            <input name="value" type="number" step="0.0001" required placeholder="Новое показание" />
-            <input name="read_on" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required />
+            <input
+              name="value"
+              type="number"
+              step="0.0001"
+              required
+              placeholder="Новое показание"
+            />
+            <input
+              name="read_on"
+              type="date"
+              defaultValue={new Date().toISOString().slice(0, 10)}
+              required
+            />
             <button className="primary-button">Сохранить</button>
           </form>
         </div>
@@ -254,16 +308,55 @@ function MeterCard({ meter, readings, onOpen, onSaved }: { meter: Meter; reading
   );
 }
 
-function CreateHomeDialog({ kind, equipment, onClose, onSaved }: { kind: "equipment" | "plan" | "meter" | "repair"; equipment: Equipment[]; onClose: () => void; onSaved: () => Promise<void> }) {
+function CreateHomeDialog({
+  kind,
+  equipment,
+  onClose,
+  onSaved,
+}: {
+  kind: "equipment" | "plan" | "meter" | "repair";
+  equipment: Equipment[];
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const path = `/home/${kind === "plan" ? "maintenance" : kind === "repair" ? "repairs" : kind}`;
     let body: Record<string, unknown> = {};
-    if (kind === "equipment") body = { name: data.get("name"), category: data.get("category") || null, location: data.get("location") || null, condition: "working" };
-    if (kind === "plan") body = { title: data.get("name"), equipment_id: data.get("equipment_id") || null, interval_days: Number(data.get("interval_days")), next_on: data.get("date"), checklist: String(data.get("checklist") || "").split(",").map((x) => x.trim()).filter(Boolean) };
-    if (kind === "meter") body = { meter_type: data.get("name"), unit: data.get("unit"), location: data.get("location") || null, next_submission_on: data.get("date") || null };
-    if (kind === "repair") body = { title: data.get("name"), equipment_id: data.get("equipment_id") || null, performed_on: data.get("date"), comment: data.get("comment") || null, keep_forever: data.get("keep_forever") === "on" };
+    if (kind === "equipment")
+      body = {
+        name: data.get("name"),
+        category: data.get("category") || null,
+        location: data.get("location") || null,
+        condition: "working",
+      };
+    if (kind === "plan")
+      body = {
+        title: data.get("name"),
+        equipment_id: data.get("equipment_id") || null,
+        interval_days: Number(data.get("interval_days")),
+        next_on: data.get("date"),
+        checklist: String(data.get("checklist") || "")
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean),
+      };
+    if (kind === "meter")
+      body = {
+        meter_type: data.get("name"),
+        unit: data.get("unit"),
+        location: data.get("location") || null,
+        next_submission_on: data.get("date") || null,
+      };
+    if (kind === "repair")
+      body = {
+        title: data.get("name"),
+        equipment_id: data.get("equipment_id") || null,
+        performed_on: data.get("date"),
+        comment: data.get("comment") || null,
+        keep_forever: data.get("keep_forever") === "on",
+      };
     await api(path, { method: "POST", ...jsonBody(body) });
     await onSaved();
   }
@@ -272,13 +365,88 @@ function CreateHomeDialog({ kind, equipment, onClose, onSaved }: { kind: "equipm
       <section className="modal-card" role="dialog" aria-modal="true">
         <h2>Новая запись</h2>
         <form className="form-grid" onSubmit={(event) => void submit(event)}>
-          <label>Название<input name="name" required autoFocus /></label>
-          {(kind === "plan" || kind === "repair") && <label>Оборудование<select name="equipment_id"><option value="">Без привязки</option>{equipment.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>}
-          {kind === "equipment" && <><label>Категория<input name="category" /></label><label>Место<input name="location" /></label></>}
-          {kind === "plan" && <><label>Периодичность, дней<input name="interval_days" type="number" min="1" defaultValue="30" required /></label><label>Следующая дата<input name="date" type="date" required /></label><label>Чек-лист через запятую<input name="checklist" /></label></>}
-          {kind === "meter" && <><label>Единица<input name="unit" placeholder="кВт·ч" required /></label><label>Место<input name="location" /></label><label>Следующая передача<input name="date" type="date" /></label></>}
-          {kind === "repair" && <><label>Дата работ<input name="date" type="date" required /></label><label>Комментарий<textarea name="comment" /></label><label className="check-label"><input name="keep_forever" type="checkbox" /> Хранить бессрочно</label></>}
-          <div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Отмена</button><button className="primary-button">Сохранить</button></div>
+          <label>
+            Название
+            <input name="name" required autoFocus />
+          </label>
+          {(kind === "plan" || kind === "repair") && (
+            <label>
+              Оборудование
+              <select name="equipment_id">
+                <option value="">Без привязки</option>
+                {equipment.map((item) => (
+                  <option value={item.id} key={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {kind === "equipment" && (
+            <>
+              <label>
+                Категория
+                <input name="category" />
+              </label>
+              <label>
+                Место
+                <input name="location" />
+              </label>
+            </>
+          )}
+          {kind === "plan" && (
+            <>
+              <label>
+                Периодичность, дней
+                <input name="interval_days" type="number" min="1" defaultValue="30" required />
+              </label>
+              <label>
+                Следующая дата
+                <input name="date" type="date" required />
+              </label>
+              <label>
+                Чек-лист через запятую
+                <input name="checklist" />
+              </label>
+            </>
+          )}
+          {kind === "meter" && (
+            <>
+              <label>
+                Единица
+                <input name="unit" placeholder="кВт·ч" required />
+              </label>
+              <label>
+                Место
+                <input name="location" />
+              </label>
+              <label>
+                Следующая передача
+                <input name="date" type="date" />
+              </label>
+            </>
+          )}
+          {kind === "repair" && (
+            <>
+              <label>
+                Дата работ
+                <input name="date" type="date" required />
+              </label>
+              <label>
+                Комментарий
+                <textarea name="comment" />
+              </label>
+              <label className="check-label">
+                <input name="keep_forever" type="checkbox" /> Хранить бессрочно
+              </label>
+            </>
+          )}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>
+              Отмена
+            </button>
+            <button className="primary-button">Сохранить</button>
+          </div>
         </form>
       </section>
     </div>
