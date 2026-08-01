@@ -7,7 +7,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-domovoy}
       POSTGRES_USER: ${POSTGRES_USER:-domovoy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-domovoy-local-only}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/setup-env.sh first}
       TZ: ${APP_TIMEZONE:-Europe/Moscow}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -27,13 +27,22 @@ services:
     environment:
       APP_ENV: production
       APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:-domovoy-local-only}@database:5432/${POSTGRES_DB:-domovoy}
-      SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-server-install}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:?Run scripts/setup-env.sh first}@database:5432/${POSTGRES_DB:-domovoy}
+      SECRET_KEY: ${SECRET_KEY:?Run scripts/setup-env.sh first}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-720}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FILES_DIR: /data/files
       BACKUPS_DIR: /data/backups
+      APP_ADDRESS: ${APP_ADDRESS:-http://localhost}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@localhost}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     depends_on:
       database:
         condition: service_healthy
@@ -57,13 +66,22 @@ services:
     environment:
       APP_ENV: production
       APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Moscow}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:-domovoy-local-only}@database:5432/${POSTGRES_DB:-domovoy}
-      SECRET_KEY: ${SECRET_KEY:-local-development-secret-change-before-server-install}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-domovoy}:${POSTGRES_PASSWORD:?Run scripts/setup-env.sh first}@database:5432/${POSTGRES_DB:-domovoy}
+      SECRET_KEY: ${SECRET_KEY:?Run scripts/setup-env.sh first}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-720}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       FILES_DIR: /data/files
       BACKUPS_DIR: /data/backups
+      APP_ADDRESS: ${APP_ADDRESS:-http://localhost}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@localhost}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
       WORKER_POLL_INTERVAL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-30}
     depends_on:
       api:

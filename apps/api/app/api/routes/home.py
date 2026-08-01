@@ -355,6 +355,7 @@ async def toggle_meters(
     ensure_admin(auth)
     item = await household(db, auth.user.household_id)
     item.meters_enabled = payload.enabled
+    item.module_settings = {**item.module_settings, "meters": payload.enabled}
     await db.commit()
     return {"enabled": item.meters_enabled}
 

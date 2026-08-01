@@ -22,7 +22,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Домовой API",
-    version="0.6.0",
+    version="0.7.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -40,6 +40,7 @@ async def prevent_identity_caching(
         "/api/v1/setup",
         "/api/v1/family",
         "/api/v1/tablet",
+        "/api/v1/settings",
     )
     if request.url.path.startswith(identity_prefixes):
         response.headers["Cache-Control"] = "no-store"

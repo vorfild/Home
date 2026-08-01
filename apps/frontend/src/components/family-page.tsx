@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-import { api, jsonBody, Role, User, UserCreated } from "../lib/api";
+import { api, FamilyStats, jsonBody, Role, User, UserCreated } from "../lib/api";
 import { ru } from "../lib/i18n";
 
 type Props = {
@@ -191,12 +191,14 @@ function MemberCard({
   currentUser,
   onChanged,
   onPassword,
+  stats,
 }: {
   member: User;
   members: User[];
   currentUser: User;
   onChanged: () => void;
   onPassword: (value: string) => void;
+  stats?: FamilyStats;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [pin, setPin] = useState("");
@@ -269,6 +271,15 @@ function MemberCard({
             {member.active_absence.starts_on} — {member.active_absence.ends_on}
             {member.active_absence.note ? ` · ${member.active_absence.note}` : ""}
           </span>
+        </div>
+      )}
+      {stats && (
+        <div className="member-stats" aria-label="Сводка участника">
+          <span><strong>{stats.today_tasks}</strong> сегодня</span>
+          <span><strong>{stats.overdue_tasks}</strong> просрочено</span>
+          <span><strong>{stats.queue_tasks}</strong> очередь</span>
+          <span><strong>{stats.awaiting_review}</strong> проверка</span>
+          <span><strong>{stats.pending_requests}</strong> запросы</span>
         </div>
       )}
       {expanded && (
@@ -415,13 +426,17 @@ export function FamilyPage({
   onEnterTablet,
 }: Props) {
   const [members, setMembers] = useState<User[]>([]);
+  const [stats, setStats] = useState<FamilyStats[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [temporaryPassword, setTemporaryPassword] = useState("");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
-      setMembers(await api<User[]>("/family/members"));
+      const nextMembers = await api<User[]>("/family/members");
+      const nextStats = await api<FamilyStats[]>("/family/summary").catch(() => []);
+      setMembers(nextMembers);
+      setStats(nextStats);
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : ru.common.error);
@@ -494,6 +509,7 @@ export function FamilyPage({
             currentUser={currentUser}
             onChanged={() => void load()}
             onPassword={setTemporaryPassword}
+            stats={stats.find((item) => item.user_id === member.id)}
           />
         ))}
       </section>

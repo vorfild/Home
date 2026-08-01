@@ -1,5 +1,6 @@
 from app.models.home import Equipment, MaintenancePlan, MaintenanceRecord, Meter, MeterReading
 from app.models.identity import Absence, Household, LoginAttempt, Session, TrustedDevice, User
+from app.models.preferences import Notification, PushSubscription, UserPreference
 from app.models.shopping import ShoppingItem, ShoppingList
 from app.models.storage import StorageItem, StorageNode
 from app.models.system_metadata import SystemMetadata
@@ -20,6 +21,9 @@ __all__ = [
     "SystemMetadata",
     "TrustedDevice",
     "User",
+    "UserPreference",
+    "Notification",
+    "PushSubscription",
     "Equipment",
     "MaintenancePlan",
     "MaintenanceRecord",

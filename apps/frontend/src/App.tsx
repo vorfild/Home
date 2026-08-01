@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { ChangePasswordScreen, LoginScreen, TabletScreen } from "./components/auth-screens";
+import { CalendarPage } from "./components/calendar-page";
 import { FamilyPage } from "./components/family-page";
 import { HomePage } from "./components/home-page";
 import { MobileNavigation, Page, Sidebar } from "./components/navigation";
 import { SetupWizard } from "./components/setup-wizard";
 import { ShoppingPage } from "./components/shopping-page";
+import { SettingsPage } from "./components/settings-page";
 import { StoragePage } from "./components/storage-page";
 import { TasksPage } from "./components/tasks-page";
 import { TodayDashboard } from "./components/today-dashboard";
@@ -17,6 +19,7 @@ import {
   SetupStatus,
   TabletStatus,
   User,
+  UserPreference,
 } from "./lib/api";
 import { ru } from "./lib/i18n";
 
@@ -63,6 +66,17 @@ export function App() {
   useEffect(() => {
     void Promise.resolve().then(boot);
   }, [boot]);
+
+  useEffect(() => {
+    if (screen !== "app" || !user) return;
+    void api<UserPreference>("/settings/preferences")
+      .then((preference) => {
+        document.documentElement.dataset.theme = preference.theme;
+        document.documentElement.dataset.fontScale = preference.font_scale;
+        document.documentElement.dataset.density = preference.density;
+      })
+      .catch(() => undefined);
+  }, [screen, user]);
 
   function authenticated(auth: AuthResponse) {
     rememberCsrf(auth.csrf_token);
@@ -139,6 +153,23 @@ export function App() {
         />
       ) : page === "home" ? (
         <HomePage currentUser={user} />
+      ) : page === "calendar" ? (
+        <CalendarPage
+          onToday={() => setPage("today")}
+          onOpen={(event) =>
+            setPage(
+              event.source_type === "task"
+                ? "tasks"
+                : event.source_type === "shopping"
+                  ? "shopping"
+                  : event.source_type === "storage"
+                    ? "storage"
+                    : "home",
+            )
+          }
+        />
+      ) : page === "settings" ? (
+        <SettingsPage currentUser={user} />
       ) : page === "today" ? (
         <TodayDashboard user={user} onOpenShopping={() => setPage("shopping")} />
       ) : (

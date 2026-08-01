@@ -23,6 +23,7 @@ from app.models.tasks import (
 from app.schemas.common import Message
 from app.schemas.tasks import TaskComplete, TaskCreate, TaskHistoryRead, TaskRead, TaskReview
 from app.services.auth import now_utc
+from app.services.notifications import create_notification
 from app.services.tasks import build_next_instance, queue_assignee
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
@@ -117,6 +118,42 @@ async def validate_users(db: AsyncSession, household_id: str, user_ids: list[str
         )
 
 
+async def notify_task_recipients(
+    db: AsyncSession,
+    task: TaskDefinition,
+    instance: TaskInstance,
+    *,
+    event_type: str = "task_assigned",
+) -> None:
+    recipients = {assignment.user_id for assignment in task.assignments}
+    if instance.assignee_id:
+        recipients.add(instance.assignee_id)
+    if not recipients and task.assignment_mode == "anyone":
+        recipients = set(
+            await db.scalars(
+                select(User.id).where(
+                    User.household_id == task.household_id, User.is_active.is_(True)
+                )
+            )
+        )
+    for user_id in recipients:
+        await create_notification(
+            db,
+            household_id=task.household_id,
+            user_id=user_id,
+            event_type=event_type,
+            title=task.title,
+            body=(
+                "Наступила ваша очередь"
+                if event_type == "queue_turn"
+                else "Вам назначено новое дело"
+            ),
+            source_type="task",
+            source_id=instance.id,
+            marker=str(instance.sequence),
+        )
+
+
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED)
 async def create_task(
     payload: TaskCreate,
@@ -180,6 +217,12 @@ async def create_task(
             action="created",
             happened_at=now_utc(),
         )
+    )
+    await notify_task_recipients(
+        db,
+        task,
+        instance,
+        event_type="queue_turn" if task.assignment_mode == "queue" else "task_assigned",
     )
     await db.commit()
     loaded = await load_instance(db, instance.id, auth.user.household_id)
@@ -318,7 +361,17 @@ async def complete_task(
             instance.task.current_queue_index = (instance.task.current_queue_index + 1) % len(
                 instance.task.queue
             )
-        await build_next_instance(db, instance.task, instance, completed_at)
+        next_instance = await build_next_instance(db, instance.task, instance, completed_at)
+        if next_instance is not None:
+            await db.flush()
+            await notify_task_recipients(
+                db,
+                instance.task,
+                next_instance,
+                event_type="queue_turn"
+                if instance.task.assignment_mode == "queue"
+                else "task_assigned",
+            )
         if instance.task.source_type == "maintenance":
             from app.services.home import record_completed_maintenance
 
@@ -356,7 +409,17 @@ async def review_task(
             instance.task.current_queue_index = (instance.task.current_queue_index + 1) % len(
                 instance.task.queue
             )
-        await build_next_instance(db, instance.task, instance, happened_at)
+        next_instance = await build_next_instance(db, instance.task, instance, happened_at)
+        if next_instance is not None:
+            await db.flush()
+            await notify_task_recipients(
+                db,
+                instance.task,
+                next_instance,
+                event_type="queue_turn"
+                if instance.task.assignment_mode == "queue"
+                else "task_assigned",
+            )
         if instance.task.source_type == "maintenance":
             from app.services.home import record_completed_maintenance
 

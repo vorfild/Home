@@ -13,6 +13,7 @@ from app.core.logging import configure_logging
 from app.db.session import SessionFactory, engine
 from app.models.identity import LoginAttempt, Session
 from app.services.home import process_home_schedules
+from app.services.notifications import dispatch_notifications, generate_due_notifications
 from app.services.storage import process_storage_timers
 
 logger = logging.getLogger("domovoy.worker")
@@ -45,6 +46,8 @@ async def process_domain_schedules() -> None:
     async with SessionFactory.begin() as session:
         await process_storage_timers(session)
         await process_home_schedules(session)
+        await generate_due_notifications(session)
+        await dispatch_notifications(session)
 
 
 async def run_worker() -> None:

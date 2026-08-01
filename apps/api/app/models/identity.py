@@ -34,6 +34,18 @@ class Household(TimestampMixin, Base):
     notification_settings: Mapped[dict[str, Any]] = mapped_column(
         JSON, default=dict, nullable=False
     )
+    module_settings: Mapped[dict[str, bool]] = mapped_column(
+        JSON,
+        default=lambda: {
+            "meters": True,
+            "email": False,
+            "shopping_prices": True,
+            "maintenance_finances": True,
+            "task_photos": True,
+        },
+        nullable=False,
+    )
+    server_settings: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 
     users: Mapped[list[User]] = relationship(back_populates="household")
 

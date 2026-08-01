@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime, time, timedelta
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,8 @@ from app.api.dependencies.auth import AuthContext, admin_auth, admin_csrf_auth, 
 from app.core.security import generate_temporary_password, hash_secret, opaque_token
 from app.db.session import get_db_session
 from app.models.identity import Absence, Household, Session, TrustedDevice, User, UserRole
+from app.models.shopping import ShoppingItem
+from app.models.tasks import TaskAssignment, TaskDefinition, TaskInstance
 from app.schemas.common import Message
 from app.schemas.identity import (
     AbsenceCreate,
@@ -27,6 +29,7 @@ from app.schemas.identity import (
     UserRead,
     UserUpdate,
 )
+from app.schemas.settings import FamilyStats
 from app.services.auth import now_utc, set_device_cookie
 
 router = APIRouter(prefix="/family", tags=["family"])
@@ -79,6 +82,87 @@ async def list_members(
     )
     absences = await active_absences(db, [user.id for user in users], timezone or "Europe/Moscow")
     return [read_user(user, absences.get(user.id)) for user in users]
+
+
+@router.get("/summary", response_model=list[FamilyStats])
+async def family_summary(
+    auth: Annotated[AuthContext, Depends(current_auth)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[FamilyStats]:
+    users = list(
+        await db.scalars(
+            select(User)
+            .where(User.household_id == auth.user.household_id)
+            .order_by(User.created_at)
+        )
+    )
+    timezone_name = await db.scalar(
+        select(Household.timezone).where(Household.id == auth.user.household_id)
+    )
+    timezone = ZoneInfo(timezone_name or "Europe/Moscow")
+    local_today = datetime.now(timezone).date()
+    start = datetime.combine(local_today, time.min, timezone).astimezone(UTC)
+    end = datetime.combine(local_today + timedelta(days=1), time.min, timezone).astimezone(UTC)
+    result: list[FamilyStats] = []
+    for user in users:
+        owned = or_(TaskInstance.assignee_id == user.id, TaskAssignment.user_id == user.id)
+        base = (
+            select(func.count(func.distinct(TaskInstance.id)))
+            .select_from(TaskInstance)
+            .join(TaskDefinition)
+            .outerjoin(TaskAssignment)
+            .where(TaskDefinition.household_id == auth.user.household_id, owned)
+        )
+        today_tasks = await db.scalar(
+            base.where(
+                TaskInstance.status != "completed",
+                TaskInstance.due_at >= start,
+                TaskInstance.due_at < end,
+            )
+        )
+        overdue_tasks = await db.scalar(
+            base.where(TaskInstance.status != "completed", TaskInstance.due_at < start)
+        )
+        queue_tasks = await db.scalar(
+            select(func.count(TaskInstance.id))
+            .join(TaskDefinition)
+            .where(
+                TaskDefinition.household_id == auth.user.household_id,
+                TaskDefinition.assignment_mode == "queue",
+                TaskInstance.assignee_id == user.id,
+                TaskInstance.status != "completed",
+            )
+        )
+        review_query = (
+            select(func.count(TaskInstance.id))
+            .join(TaskDefinition)
+            .where(
+                TaskDefinition.household_id == auth.user.household_id,
+                TaskInstance.status == "awaiting_review",
+            )
+        )
+        request_query = (
+            select(func.count(ShoppingItem.id))
+            .join(ShoppingItem.shopping_list)
+            .where(
+                ShoppingItem.proposal_status == "pending",
+                ShoppingItem.shopping_list.has(household_id=auth.user.household_id),
+            )
+        )
+        if user.role == UserRole.CHILD:
+            review_query = review_query.where(TaskInstance.completed_by_id == user.id)
+            request_query = request_query.where(ShoppingItem.added_by_id == user.id)
+        result.append(
+            FamilyStats(
+                user_id=user.id,
+                today_tasks=int(today_tasks or 0),
+                overdue_tasks=int(overdue_tasks or 0),
+                queue_tasks=int(queue_tasks or 0),
+                awaiting_review=int(await db.scalar(review_query) or 0),
+                pending_requests=int(await db.scalar(request_query) or 0),
+            )
+        )
+    return result
 
 
 @router.post("/members", response_model=UserCreated, status_code=status.HTTP_201_CREATED)

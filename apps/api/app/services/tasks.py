@@ -128,6 +128,8 @@ async def build_next_instance(
     if task.assignment_mode == "queue":
         assignee_id, index = await queue_assignee(db, task, on_date=due_at.date())
         task.current_queue_index = index
+    elif task.assignment_mode == "fixed" and task.assignments:
+        assignee_id = task.assignments[0].user_id
     instance = TaskInstance(
         task_id=task.id,
         sequence=completed.sequence + 1,

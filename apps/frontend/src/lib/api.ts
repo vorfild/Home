@@ -210,6 +210,71 @@ export type HomeOverview = {
   equipment_attention: Equipment[];
 };
 
+export type CalendarEvent = {
+  id: string;
+  source_type: "task" | "shopping" | "maintenance" | "meter" | "warranty" | "storage";
+  source_id: string;
+  title: string;
+  starts_at: string;
+  status: string;
+  user_ids: string[];
+  scope: "personal" | "shared";
+  editable: boolean;
+  recurring: boolean;
+};
+
+export type UserPreference = {
+  user_id: string;
+  channels: { in_app: boolean; push: boolean; email: boolean };
+  event_rules: Record<string, boolean>;
+  reminder_minutes: number;
+  repeat_minutes: number | null;
+  quiet_start: string | null;
+  quiet_end: string | null;
+  email: string | null;
+  theme: "system" | "light" | "dark";
+  font_scale: "small" | "normal" | "large";
+  density: "compact" | "comfortable";
+};
+
+export type ModuleSettings = {
+  meters: boolean;
+  email: boolean;
+  shopping_prices: boolean;
+  maintenance_finances: boolean;
+  task_photos: boolean;
+};
+
+export type ServerSettings = {
+  timezone: string;
+  domain: string | null;
+  https_enabled: boolean;
+  files_dir: string;
+  app_version: string;
+  web_push_configured: boolean;
+  smtp_configured: boolean;
+};
+
+export type AppNotification = {
+  id: string;
+  event_type: string;
+  title: string;
+  body: string;
+  source_type: string | null;
+  source_id: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
+export type FamilyStats = {
+  user_id: string;
+  today_tasks: number;
+  overdue_tasks: number;
+  queue_tasks: number;
+  awaiting_review: number;
+  pending_requests: number;
+};
+
 let csrfToken = "";
 
 function csrfFromCookie(): string {
