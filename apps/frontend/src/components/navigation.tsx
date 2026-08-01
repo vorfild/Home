@@ -16,24 +16,25 @@ import type { User } from "../lib/api";
 import { ru } from "../lib/i18n";
 
 type Icon = typeof House;
-export type Page = "today" | "family";
+export type Page =
+  "today" | "tasks" | "shopping" | "storage" | "home" | "calendar" | "family" | "settings";
 
 const desktopItems: { label: string; icon: Icon; page?: Page }[] = [
   { label: ru.nav.today, icon: House, page: "today" },
-  { label: ru.nav.allTasks, icon: ClipboardList },
-  { label: ru.nav.shopping, icon: ShoppingCart },
-  { label: ru.nav.storage, icon: Warehouse },
-  { label: ru.nav.home, icon: PackageOpen },
-  { label: ru.nav.calendar, icon: CalendarDays },
+  { label: ru.nav.allTasks, icon: ClipboardList, page: "tasks" },
+  { label: ru.nav.shopping, icon: ShoppingCart, page: "shopping" },
+  { label: ru.nav.storage, icon: Warehouse, page: "storage" },
+  { label: ru.nav.home, icon: PackageOpen, page: "home" },
+  { label: ru.nav.calendar, icon: CalendarDays, page: "calendar" },
   { label: ru.nav.family, icon: Users, page: "family" },
-  { label: ru.nav.settings, icon: Settings },
+  { label: ru.nav.settings, icon: Settings, page: "settings" },
 ];
 
 const mobileItems: { label: string; icon: Icon; page?: Page }[] = [
   { label: ru.nav.today, icon: House, page: "today" },
-  { label: ru.nav.tasks, icon: ClipboardList },
-  { label: ru.nav.shopping, icon: ShoppingCart },
-  { label: ru.nav.storage, icon: Warehouse },
+  { label: ru.nav.tasks, icon: ClipboardList, page: "tasks" },
+  { label: ru.nav.shopping, icon: ShoppingCart, page: "shopping" },
+  { label: ru.nav.storage, icon: Warehouse, page: "storage" },
   { label: ru.nav.more, icon: Menu, page: "family" },
 ];
 

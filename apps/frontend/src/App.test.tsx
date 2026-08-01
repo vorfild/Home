@@ -42,6 +42,32 @@ describe("Domovoy identity flow", () => {
       if (path.endsWith("/tablet/status")) return response(200, { trusted: false, name: null });
       if (path.endsWith("/auth/me")) return response(200, { user, csrf_token: "csrf" });
       if (path.endsWith("/family/members")) return response(200, [user]);
+      if (path.includes("/tasks/today")) return response(200, []);
+      if (path.endsWith("/tasks"))
+        return response(201, {
+          id: "task-1",
+          definition_id: "definition-1",
+          title: "Проверить почту",
+          description: null,
+          room: null,
+          category: "другое",
+          due_at: new Date().toISOString(),
+          estimated_minutes: null,
+          priority: "normal",
+          assignment_mode: "fixed",
+          assignee_ids: [user.id],
+          queue_user_ids: [],
+          current_queue_user_id: user.id,
+          next_queue_user_id: null,
+          subtasks: [],
+          repeat: { kind: "none" },
+          requires_photo: false,
+          requires_adult_review: false,
+          status: "open",
+          completed_by_id: null,
+          completed_at: null,
+          review_comment: null,
+        });
       return response(404, { detail: "not found" });
     });
 
@@ -56,8 +82,7 @@ describe("Domovoy identity flow", () => {
     vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
       const path = String(input);
       if (path.endsWith("/setup/status")) return response(200, { setup_required: false });
-      if (path.endsWith("/tablet/status"))
-        return response(200, { trusted: false, name: null });
+      if (path.endsWith("/tablet/status")) return response(200, { trusted: false, name: null });
       if (path.endsWith("/auth/me")) return response(401, { detail: "Требуется вход" });
       return response(404, { detail: "not found" });
     });
@@ -75,6 +100,32 @@ describe("Domovoy identity flow", () => {
       if (path.endsWith("/tablet/status")) return response(200, { trusted: false, name: null });
       if (path.endsWith("/auth/me")) return response(200, { user, csrf_token: "csrf" });
       if (path.endsWith("/family/members")) return response(200, [user]);
+      if (path.includes("/tasks/today")) return response(200, []);
+      if (path.endsWith("/tasks"))
+        return response(201, {
+          id: "task-1",
+          definition_id: "definition-1",
+          title: "Проверить почту",
+          description: null,
+          room: null,
+          category: "другое",
+          due_at: new Date().toISOString(),
+          estimated_minutes: null,
+          priority: "normal",
+          assignment_mode: "fixed",
+          assignee_ids: [user.id],
+          queue_user_ids: [],
+          current_queue_user_id: user.id,
+          next_queue_user_id: null,
+          subtasks: [],
+          repeat: { kind: "none" },
+          requires_photo: false,
+          requires_adult_review: false,
+          status: "open",
+          completed_by_id: null,
+          completed_at: null,
+          review_comment: null,
+        });
       return response(404, { detail: "not found" });
     });
     render(<App />);
@@ -89,6 +140,6 @@ describe("Domovoy identity flow", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Добавить быстрое дело" }));
 
-    expect(screen.getByText("Проверить почту")).toBeInTheDocument();
+    expect(await screen.findByText("Проверить почту")).toBeInTheDocument();
   });
 });

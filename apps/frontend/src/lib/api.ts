@@ -25,6 +25,31 @@ export type SetupStatus = { setup_required: boolean };
 export type TabletStatus = { trusted: boolean; name: string | null };
 export type UserCreated = { user: User; temporary_password: string };
 
+export type TaskItem = {
+  id: string;
+  definition_id: string;
+  title: string;
+  description: string | null;
+  room: string | null;
+  category: string;
+  due_at: string | null;
+  estimated_minutes: number | null;
+  priority: "low" | "normal" | "high" | "urgent";
+  assignment_mode: "fixed" | "anyone" | "multiple" | "queue";
+  assignee_ids: string[];
+  queue_user_ids: string[];
+  current_queue_user_id: string | null;
+  next_queue_user_id: string | null;
+  subtasks: { id: string; title: string; completed: boolean }[];
+  repeat: { kind: string; [key: string]: unknown };
+  requires_photo: boolean;
+  requires_adult_review: boolean;
+  status: "open" | "awaiting_review" | "rejected" | "completed";
+  completed_by_id: string | null;
+  completed_at: string | null;
+  review_comment: string | null;
+};
+
 let csrfToken = "";
 
 function csrfFromCookie(): string {

@@ -4,6 +4,7 @@ import { ChangePasswordScreen, LoginScreen, TabletScreen } from "./components/au
 import { FamilyPage } from "./components/family-page";
 import { MobileNavigation, Page, Sidebar } from "./components/navigation";
 import { SetupWizard } from "./components/setup-wizard";
+import { TasksPage } from "./components/tasks-page";
 import { TodayDashboard } from "./components/today-dashboard";
 import {
   api,
@@ -118,8 +119,14 @@ export function App() {
           onTabletRegistered={() => setTabletTrusted(true)}
           onEnterTablet={() => void logout("tablet")}
         />
+      ) : page === "tasks" ? (
+        <TasksPage currentUser={user} />
+      ) : page === "today" ? (
+        <TodayDashboard user={user} />
       ) : (
-        <TodayDashboard userName={user.name} />
+        <main className="main-content module-page">
+          <h1>{ru.nav[page]}</h1>
+        </main>
       )}
       <MobileNavigation
         active={page}

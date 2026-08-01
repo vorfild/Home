@@ -16,6 +16,12 @@ from app.models import (  # noqa: F401
     LoginAttempt,
     Session,
     SystemMetadata,
+    TaskAssignment,
+    TaskDefinition,
+    TaskHistory,
+    TaskInstance,
+    TaskQueueMember,
+    TaskSubtask,
     TrustedDevice,
     User,
 )

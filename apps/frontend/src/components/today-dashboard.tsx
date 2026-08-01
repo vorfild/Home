@@ -1,206 +1,178 @@
-import { CalendarDays, Check, ChevronRight, EllipsisVertical, Plus } from "lucide-react";
-import { useMemo, useState } from "react";
+import { CalendarDays, Check, Plus } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { api, jsonBody, TaskItem, User } from "../lib/api";
 import { formatToday } from "../lib/date";
 import { ru } from "../lib/i18n";
 
-type PersonColor = "mint" | "blue" | "pale-blue";
-
-type Task = {
-  id: number;
-  title: string;
-  person: string;
-  initial: string;
-  when: string;
-  color: PersonColor;
-  completed: boolean;
-};
-
-const initialTasks: Task[] = [
-  {
-    id: 1,
-    title: ru.today.tasks.waterFlowers,
-    person: ru.today.people.anna,
-    initial: "А",
-    when: "18:00",
-    color: "mint",
-    completed: false,
-  },
-  {
-    id: 2,
-    title: ru.today.tasks.takeTrash,
-    person: ru.today.people.alexey,
-    initial: "А",
-    when: "до 20:00",
-    color: "blue",
-    completed: false,
-  },
-  {
-    id: 3,
-    title: ru.today.tasks.vacuumLivingRoom,
-    person: ru.today.people.misha,
-    initial: "М",
-    when: ru.nav.today,
-    color: "pale-blue",
-    completed: true,
-  },
-  {
-    id: 4,
-    title: ru.today.tasks.changeTowels,
-    person: ru.today.people.olga,
-    initial: "О",
-    when: ru.nav.today,
-    color: "mint",
-    completed: false,
-  },
-];
-
-function TaskRow({ task, onToggle }: { task: Task; onToggle: (id: number) => void }) {
-  return (
-    <article className={`task-row${task.completed ? " is-complete" : ""}`}>
-      <button
-        className="task-checkbox"
-        type="button"
-        aria-label={
-          task.completed ? `Вернуть задачу «${task.title}»` : `Завершить задачу «${task.title}»`
-        }
-        aria-pressed={task.completed}
-        onClick={() => onToggle(task.id)}
-      >
-        {task.completed && <Check aria-hidden="true" />}
-      </button>
-      <span className={`avatar avatar-${task.color}`}>{task.initial}</span>
-      <div className="task-copy">
-        <strong>{task.title}</strong>
-        <span>
-          {task.person} <i aria-hidden="true">·</i> {task.when}
-        </span>
-      </div>
-      <button className="icon-button" type="button" aria-label={`Действия: ${task.title}`}>
-        <EllipsisVertical aria-hidden="true" />
-      </button>
-    </article>
+function dueLabel(task: TaskItem): string {
+  if (!task.due_at) return ru.tasks.noTime;
+  return new Intl.DateTimeFormat("ru-RU", { hour: "2-digit", minute: "2-digit" }).format(
+    new Date(task.due_at),
   );
 }
 
-export function TodayDashboard({ userName }: { userName: string }) {
-  const [tasks, setTasks] = useState(initialTasks);
+export function TodayDashboard({ user }: { user: User }) {
+  const storedScope = localStorage.getItem("domovoy.today.scope") === "all" ? "all" : "mine";
+  const [scope, setScope] = useState<"mine" | "all">(storedScope);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [draft, setDraft] = useState("");
-  const completeCount = useMemo(() => tasks.filter((task) => task.completed).length, [tasks]);
+  const [error, setError] = useState("");
 
-  function toggleTask(id: number) {
-    setTasks((current) =>
-      current.map((task) => (task.id === id ? { ...task, completed: !task.completed } : task)),
-    );
+  const load = useCallback(async () => {
+    try {
+      setTasks(await api<TaskItem[]>(`/tasks/today?scope=${scope}`));
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : ru.common.error);
+    }
+  }, [scope]);
+
+  useEffect(() => {
+    void Promise.resolve().then(load);
+  }, [load]);
+
+  const open = useMemo(
+    () =>
+      tasks
+        .filter((task) => task.status !== "completed")
+        .sort((left, right) => {
+          if (!left.due_at) return 1;
+          if (!right.due_at) return -1;
+          return new Date(left.due_at).getTime() - new Date(right.due_at).getTime();
+        }),
+    [tasks],
+  );
+  const completed = tasks.filter((task) => task.status === "completed");
+
+  function chooseScope(next: "mine" | "all") {
+    localStorage.setItem("domovoy.today.scope", next);
+    setScope(next);
   }
 
-  function addDraftTask() {
+  async function complete(task: TaskItem) {
+    try {
+      const updated = await api<TaskItem>(`/tasks/${task.id}/complete`, {
+        method: "POST",
+        ...jsonBody({ completed_subtask_ids: task.subtasks.map((item) => item.id) }),
+      });
+      setTasks((items) => items.map((item) => (item.id === task.id ? updated : item)));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : ru.common.error);
+    }
+  }
+
+  async function addTask(event: FormEvent) {
+    event.preventDefault();
     const title = draft.trim();
     if (!title) return;
-    setTasks((current) => [
-      ...current,
-      {
-        id: Math.max(0, ...current.map((task) => task.id)) + 1,
-        title,
-        person: userName,
-        initial: "А",
-        when: ru.nav.today,
-        color: "blue",
-        completed: false,
-      },
-    ]);
-    setDraft("");
+    try {
+      const created = await api<TaskItem>("/tasks", {
+        method: "POST",
+        ...jsonBody({
+          title,
+          due_at: new Date().toISOString(),
+          assignment_mode: "fixed",
+          assignee_ids: [user.id],
+          repeat: { kind: "none" },
+        }),
+      });
+      setTasks((items) => [...items, created]);
+      setDraft("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : ru.common.error);
+    }
   }
 
+  const progress = tasks.length ? Math.round((completed.length / tasks.length) * 100) : 0;
   return (
     <main className="main-content">
       <header className="page-header">
         <div>
           <p className="mobile-brand">{ru.brand}</p>
           <h1>
-            {ru.today.greeting}, {userName}
+            {ru.today.greeting}, {user.name}
           </h1>
           <p className="date-line">
-            <CalendarDays aria-hidden="true" />
-            <span>{formatToday()}</span>
+            <CalendarDays aria-hidden="true" /> <span>{formatToday()}</span>
           </p>
         </div>
-        <button className="primary-button" type="button">
-          <Plus aria-hidden="true" />
-          <span>{ru.today.addTask}</span>
-        </button>
       </header>
-
-      <section className="dashboard-grid" aria-label="Сводка на сегодня">
+      <div className="scope-switch" role="group" aria-label={ru.today.scope}>
+        <button className={scope === "mine" ? "is-active" : ""} onClick={() => chooseScope("mine")}>
+          {ru.today.mine}
+        </button>
+        <button className={scope === "all" ? "is-active" : ""} onClick={() => chooseScope("all")}>
+          {ru.today.all}
+        </button>
+      </div>
+      {error && <p className="form-error">{error}</p>}
+      <section className="dashboard-grid">
         <section className="card today-card">
           <div className="card-heading">
             <h2>{ru.today.title}</h2>
-            <span className="filter-chip">
-              {ru.today.all} <b>{tasks.length}</b>
-            </span>
+            <span className="filter-chip">{open.length}</span>
           </div>
           <div className="task-list">
-            {tasks.map((task) => (
-              <TaskRow key={task.id} task={task} onToggle={toggleTask} />
+            {open.map((task) => (
+              <article className="task-row live-task-row" key={task.id}>
+                <button
+                  className="task-checkbox"
+                  type="button"
+                  onClick={() => void complete(task)}
+                  aria-label={`${ru.tasks.complete}: ${task.title}`}
+                />
+                <div className="task-copy">
+                  <strong>{task.title}</strong>
+                  <span>
+                    {dueLabel(task)} · {task.category}
+                  </span>
+                </div>
+              </article>
             ))}
+            {open.length === 0 && <p className="empty-state">{ru.today.empty}</p>}
           </div>
-          <form
-            className="quick-add"
-            onSubmit={(event) => {
-              event.preventDefault();
-              addDraftTask();
-            }}
-          >
-            <label className="sr-only" htmlFor="quick-task">
-              {ru.today.quickTaskPlaceholder}
-            </label>
-            <input
-              id="quick-task"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder={ru.today.quickTaskPlaceholder}
-            />
-            <button type="submit" aria-label="Добавить быстрое дело">
-              <Plus aria-hidden="true" />
-            </button>
-          </form>
+          {user.role !== "child" && (
+            <form className="quick-add" onSubmit={(event) => void addTask(event)}>
+              <label className="sr-only" htmlFor="quick-task">
+                {ru.today.quickTaskPlaceholder}
+              </label>
+              <input
+                id="quick-task"
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                placeholder={ru.today.quickTaskPlaceholder}
+              />
+              <button type="submit" aria-label={ru.today.quickAdd}>
+                <Plus aria-hidden="true" />
+              </button>
+            </form>
+          )}
+          <details className="completed-block">
+            <summary>
+              {ru.today.completedTasks} · {completed.length}
+            </summary>
+            {completed.map((task) => (
+              <p key={task.id}>
+                <Check aria-hidden="true" /> {task.title}
+              </p>
+            ))}
+          </details>
         </section>
-
         <aside className="summary-column">
           <section className="card progress-card">
             <div className="progress-copy">
               <h2>{ru.today.dailyProgress}</h2>
               <strong>
-                {completeCount} из {tasks.length}
+                {completed.length} из {tasks.length}
               </strong>
               <span>
-                {Math.round((completeCount / tasks.length) * 100)}% {ru.today.completed}
+                {progress}% {ru.today.completed}
               </span>
               <div className="progress-track" aria-hidden="true">
-                <span style={{ width: `${(completeCount / tasks.length) * 100}%` }} />
+                <span style={{ width: `${progress}%` }} />
               </div>
             </div>
-            <div className="family-avatars" aria-label="Члены семьи">
-              <span className="avatar avatar-mint">А</span>
-              <span className="avatar avatar-blue">А</span>
-              <span className="avatar avatar-pale-blue">М</span>
-              <span className="avatar avatar-mint">О</span>
-            </div>
-          </section>
-
-          <section className="card shopping-card">
-            <h2>{ru.today.shoppingToday}</h2>
-            <p>{ru.today.plannedFor}</p>
-            <p className="shopping-count">{ru.today.positions}</p>
-            <ul>
-              <li>Молоко</li>
-              <li>Яблоки</li>
-              <li>Средство для посуды</li>
-            </ul>
-            <button type="button">
-              <span>{ru.today.openList}</span>
-              <ChevronRight aria-hidden="true" />
-            </button>
           </section>
         </aside>
       </section>
