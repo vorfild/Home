@@ -23,6 +23,10 @@ requirements live in `docs/spec.md`; do not duplicate the full specification her
 - Make worker jobs idempotent and safe to retry.
 - Never log passwords, PINs, session tokens, cookies, file contents, or other secrets.
 - Preserve local disk volumes for PostgreSQL, user files, and backups.
+- Validate uploaded extension, MIME, magic bytes, size and image dimensions before linking a file;
+  serve private files only through authenticated API routes.
+- Never replace the monthly backup before a complete checksum verification. Import and server
+  updates must create a verified insurance archive first and preserve rollback state on failure.
 
 ## Code quality
 

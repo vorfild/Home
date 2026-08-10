@@ -14,6 +14,7 @@ describe("task offline queue", () => {
       operationId: "operation-123",
       taskId: "task-1",
       completedSubtaskIds: ["subtask-1"],
+      photoIds: [],
     };
     queueTaskCompletion(operation);
     queueTaskCompletion(operation);
@@ -26,6 +27,7 @@ describe("task offline queue", () => {
       operationId: "operation-456",
       taskId: "task-2",
       completedSubtaskIds: [],
+      photoIds: [],
     });
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ id: "task-2" }), {

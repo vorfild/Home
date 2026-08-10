@@ -6,6 +6,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes postgresql-client \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system --gid 10001 domovoy \
     && adduser --system --uid 10001 --ingroup domovoy --home /app domovoy
 

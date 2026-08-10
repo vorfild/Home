@@ -2,7 +2,9 @@ from fastapi import APIRouter
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.calendar import router as calendar_router
+from app.api.routes.data import router as data_router
 from app.api.routes.family import router as family_router
+from app.api.routes.files import router as files_router
 from app.api.routes.health import router as health_router
 from app.api.routes.home import router as home_router
 from app.api.routes.settings import router as settings_router
@@ -25,4 +27,6 @@ api_router.include_router(storage_router)
 api_router.include_router(home_router)
 api_router.include_router(settings_router)
 api_router.include_router(calendar_router)
+api_router.include_router(files_router)
+api_router.include_router(data_router)
 api_router.include_router(sync_router)

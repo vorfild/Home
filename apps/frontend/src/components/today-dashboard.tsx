@@ -1,6 +1,7 @@
 import { CalendarDays, Check, Plus, WifiOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { FileUploader } from "./file-uploader";
 import { api, jsonBody, ShoppingList, TaskItem, User } from "../lib/api";
 import { formatToday } from "../lib/date";
 import { ru } from "../lib/i18n";
@@ -36,6 +37,7 @@ export function TodayDashboard({
   const [error, setError] = useState("");
   const [offline, setOffline] = useState(!navigator.onLine);
   const [pending, setPending] = useState(pendingTaskCount());
+  const [taskPhotos, setTaskPhotos] = useState<Record<string, string[]>>({});
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +101,11 @@ export function TodayDashboard({
   }
 
   async function complete(task: TaskItem) {
+    const photoIds = taskPhotos[task.id] ?? [];
+    if (task.requires_photo && photoIds.length === 0) {
+      setError("Для завершения этого дела нужно загрузить фото");
+      return;
+    }
     const operationId = newOperationId();
     const before = tasks;
     const optimistic: TaskItem = {
@@ -113,6 +120,7 @@ export function TodayDashboard({
       operationId,
       taskId: task.id,
       completedSubtaskIds: task.subtasks.map((item) => item.id),
+      photoIds,
     };
     if (!navigator.onLine) {
       queueTaskCompletion(operation);
@@ -121,7 +129,7 @@ export function TodayDashboard({
       return;
     }
     try {
-      const updated = await completeTaskOperation(task, operationId);
+      const updated = await completeTaskOperation(task, operationId, photoIds);
       setTasks((items) => items.map((item) => (item.id === task.id ? updated : item)));
     } catch (caught) {
       if (!(caught instanceof Error) || caught.name === "TypeError") {
@@ -208,6 +216,19 @@ export function TodayDashboard({
                     {dueLabel(task)} · {task.category}
                   </span>
                 </div>
+                {task.requires_photo && (
+                  <FileUploader
+                    entityType="task_instance"
+                    entityId={task.id}
+                    purpose="photo"
+                    onUploaded={(asset) =>
+                      setTaskPhotos((current) => ({
+                        ...current,
+                        [task.id]: Array.from(new Set([...(current[task.id] ?? []), asset.id])),
+                      }))
+                    }
+                  />
+                )}
               </article>
             ))}
             {open.length === 0 && <p className="empty-state">{ru.today.empty}</p>}

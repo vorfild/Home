@@ -1,4 +1,7 @@
 .env
+.domovoy-update-state
+.domovoy-update-state.tmp
+.domovoy-update-lock/
 .DS_Store
 .idea/
 .vscode/

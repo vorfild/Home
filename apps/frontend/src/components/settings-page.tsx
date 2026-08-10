@@ -1,20 +1,27 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import {
   Bell,
   CheckCheck,
   Database,
+  Download,
   GitMerge,
+  HardDrive,
   MonitorCog,
   Palette,
   Server,
+  ShieldCheck,
+  UploadCloud,
   UserRound,
 } from "lucide-react";
 
 import {
   api,
   AppNotification,
+  BackupArchive,
+  DataStatus,
   jsonBody,
   ModuleSettings,
+  RestoreReport,
   ServerSettings,
   SyncConflict,
   User,
@@ -56,6 +63,7 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
   const [server, setServer] = useState<ServerSettings | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -73,7 +81,14 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
       if (currentUser.role !== "child") {
         setConflicts(await api<SyncConflict[]>("/sync/conflicts"));
       }
-      if (currentUser.role === "admin") setServer(await api<ServerSettings>("/settings/server"));
+      if (currentUser.role === "admin") {
+        const [serverData, storageData] = await Promise.all([
+          api<ServerSettings>("/settings/server"),
+          api<DataStatus>("/data/status"),
+        ]);
+        setServer(serverData);
+        setDataStatus(storageData);
+      }
       setError("");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Не удалось загрузить настройки");
@@ -342,22 +357,204 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
               <button className="primary-button">Сохранить</button>
             </form>
           )}
-          {tab === "data" && currentUser.role === "admin" && (
-            <>
-              <h2>Данные</h2>
-              <p>
-                Состояние резервных копий, переносимый экспорт и импорт появятся в следующем этапе
-                файлов и резервирования.
-              </p>
-              <div className="module-card data-placeholder">
-                <Database />
-                <span>Постоянные volumes подключены; операции переноса пока недоступны.</span>
-              </div>
-            </>
+          {tab === "data" && currentUser.role === "admin" && dataStatus && (
+            <DataSettings
+              value={dataStatus}
+              onChanged={load}
+              onMessage={setMessage}
+              onError={setError}
+            />
           )}
         </section>
       </div>
     </main>
+  );
+}
+
+function sizeLabel(value: number): string {
+  if (value < 1024) return `${value} Б`;
+  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} КБ`;
+  if (value < 1024 * 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} МБ`;
+  return `${(value / 1024 / 1024 / 1024).toFixed(1)} ГБ`;
+}
+
+function BackupRow({ item }: { item: BackupArchive }) {
+  return (
+    <article className="backup-row">
+      <ShieldCheck aria-hidden="true" />
+      <div>
+        <strong>{item.kind === "monthly" ? "Месячная копия" : "Ручной экспорт"}</strong>
+        <span>
+          {new Date(item.verified_at).toLocaleString("ru-RU")} · {sizeLabel(item.size_bytes)} · v
+          {item.app_version}
+        </span>
+      </div>
+      <a className="secondary-button" href={`/api/v1/data/backups/${item.id}/download`} download>
+        <Download aria-hidden="true" /> Скачать
+      </a>
+    </article>
+  );
+}
+
+function DataSettings({
+  value,
+  onChanged,
+  onMessage,
+  onError,
+}: {
+  value: DataStatus;
+  onChanged: () => Promise<void>;
+  onMessage: (value: string) => void;
+  onError: (value: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<RestoreReport | null>(null);
+
+  async function createExport() {
+    setBusy(true);
+    onError("");
+    try {
+      await api<BackupArchive>("/data/exports", { method: "POST" });
+      onMessage("Переносимый архив создан и проверен");
+      await onChanged();
+    } catch (caught) {
+      onError(caught instanceof Error ? caught.message : "Не удалось создать архив");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importSelected(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!navigator.onLine) {
+      onError("Импорт недоступен без сети");
+      return;
+    }
+    const password = window.prompt(
+      "Импорт заменит текущие данные. Введите пароль администратора для подтверждения.",
+    );
+    if (!password) return;
+    setBusy(true);
+    onError("");
+    try {
+      const result = await api<RestoreReport>("/data/imports", {
+        method: "POST",
+        headers: {
+          "Content-Type": file.type || "application/zip",
+          "X-Filename": encodeURIComponent(file.name),
+          "X-Domovoy-Admin-Password": password,
+        },
+        body: file,
+      });
+      setReport(result);
+      onMessage("Импорт завершён. Все сессии отозваны — войдите заново.");
+    } catch (caught) {
+      onError(caught instanceof Error ? caught.message : "Импорт отменён");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    try {
+      const plan = await api<{ command: string; rollback_command: string }>(
+        "/data/updates/prepare",
+        {
+          method: "POST",
+          ...jsonBody({ target_ref: form.get("target_ref"), password: form.get("password") }),
+        },
+      );
+      onMessage(`Страховочная копия готова. В SSH выполните: ${plan.command}`);
+    } catch (caught) {
+      onError(caught instanceof Error ? caught.message : "Не удалось подготовить обновление");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <div className="section-title-row">
+        <div>
+          <h2>Данные и перенос</h2>
+          <p>
+            Архивы содержат базу, файлы, настройки, хеши паролей и стабильные идентификаторы QR.
+          </p>
+        </div>
+        <button className="primary-button" disabled={busy} onClick={() => void createExport()}>
+          <Download aria-hidden="true" /> Создать экспорт
+        </button>
+      </div>
+      <div className="storage-usage">
+        <HardDrive aria-hidden="true" />
+        <span>Файлы: {sizeLabel(value.files_bytes)}</span>
+        <span>Архивы: {sizeLabel(value.backups_bytes)}</span>
+        <span>Схема: {value.schema_version}</span>
+      </div>
+      <h3>Месячная копия</h3>
+      {value.monthly ? (
+        <BackupRow item={value.monthly} />
+      ) : (
+        <p className="empty-state">Worker создаст первую проверенную копию автоматически.</p>
+      )}
+      <h3>Ручные экспорты</h3>
+      <div className="backup-list">
+        {value.manual.map((item) => (
+          <BackupRow key={item.id} item={item} />
+        ))}
+        {value.manual.length === 0 && <p className="empty-state">Ручных экспортов пока нет.</p>}
+      </div>
+      <section className="danger-zone">
+        <h3>Импорт</h3>
+        <p>
+          Сначала проверяется ZIP и совместимость, затем создаётся страховочная копия. При ошибке
+          текущие данные и файлы остаются без изменений.
+        </p>
+        <label className="file-upload-button">
+          <UploadCloud aria-hidden="true" /> Выбрать архив
+          <input
+            type="file"
+            accept=".zip,application/zip"
+            disabled={busy}
+            onChange={(event) => void importSelected(event)}
+          />
+        </label>
+        {report && (
+          <div className="restore-report">
+            <strong>Отчёт: {report.status}</strong>
+            <span>{report.details}</span>
+            {report.warnings.map((warning) => (
+              <small key={warning}>{warning}</small>
+            ))}
+          </div>
+        )}
+      </section>
+      <form className="update-form" onSubmit={(event) => void prepareUpdate(event)}>
+        <h3>Обновление сервера</h3>
+        <p>
+          Подготовка создаёт страховочную копию. Само обновление выполняется в SSH, чтобы пережить
+          перезапуск контейнеров; скрипт автоматически откатывается при неуспешной проверке.
+        </p>
+        <div className="form-columns">
+          <label>
+            Тег или commit
+            <input name="target_ref" required pattern="[A-Za-z0-9._/-]+" placeholder="v1.0.0" />
+          </label>
+          <label>
+            Пароль администратора
+            <input name="password" type="password" required autoComplete="current-password" />
+          </label>
+        </div>
+        <button className="secondary-button" disabled={busy}>
+          Подготовить обновление
+        </button>
+      </form>
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ export type TaskCompletionOperation = {
   operationId: string;
   taskId: string;
   completedSubtaskIds: string[];
+  photoIds: string[];
 };
 
 type TodayCache = {
@@ -21,12 +22,14 @@ function operations(): TaskCompletionOperation[] {
   try {
     const value: unknown = JSON.parse(localStorage.getItem(QUEUE_KEY) ?? "[]");
     return Array.isArray(value)
-      ? value.filter(
-          (item): item is TaskCompletionOperation =>
-            typeof item === "object" &&
-            item !== null &&
-            (item as TaskCompletionOperation).kind === "complete-task",
-        )
+      ? value
+          .filter(
+            (item): item is TaskCompletionOperation =>
+              typeof item === "object" &&
+              item !== null &&
+              (item as TaskCompletionOperation).kind === "complete-task",
+          )
+          .map((item) => ({ ...item, photoIds: item.photoIds ?? [] }))
       : [];
   } catch {
     return [];
@@ -49,12 +52,15 @@ export function pendingTaskCount(): number {
 export async function completeTaskOperation(
   task: Pick<TaskItem, "id" | "subtasks">,
   operationId = newOperationId(),
+  photoIds: string[] = [],
 ): Promise<TaskItem> {
   return api<TaskItem>(`/tasks/${task.id}/complete`, {
     method: "POST",
     ...jsonBody({
       client_operation_id: operationId,
       completed_subtask_ids: task.subtasks.map((item) => item.id),
+      photo_id: photoIds[0] ?? null,
+      photo_ids: photoIds,
     }),
   });
 }
@@ -68,6 +74,8 @@ export async function syncTaskQueue(): Promise<number> {
         ...jsonBody({
           client_operation_id: operation.operationId,
           completed_subtask_ids: operation.completedSubtaskIds,
+          photo_id: operation.photoIds[0] ?? null,
+          photo_ids: operation.photoIds,
         }),
       });
     } catch {

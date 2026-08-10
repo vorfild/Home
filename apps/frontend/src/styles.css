@@ -2427,6 +2427,160 @@ h2 {
   color: var(--danger);
 }
 
+.file-uploader {
+  display: grid;
+  max-width: 520px;
+  gap: 8px;
+}
+
+.live-task-row > .file-uploader {
+  grid-column: 2;
+}
+
+.file-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.file-previews img {
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  object-fit: cover;
+}
+
+.file-previews a {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px;
+  gap: 5px;
+  color: var(--blue-strong);
+}
+
+.additional-files {
+  align-self: center;
+}
+
+.additional-files summary {
+  color: var(--blue-strong);
+  cursor: pointer;
+}
+
+.additional-files div {
+  display: flex;
+  padding-top: 8px;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.file-previews svg,
+.file-upload-button svg,
+.backup-row svg,
+.storage-usage svg {
+  width: 19px;
+}
+
+.file-upload-button {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 40px;
+  padding: 0 12px;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  color: var(--blue-strong);
+  background: var(--card);
+  cursor: pointer;
+}
+
+.file-upload-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+.file-upload-button.is-busy {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.backup-list,
+.restore-report,
+.update-form,
+.danger-zone {
+  display: grid;
+  gap: 10px;
+}
+
+.backup-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  padding: 12px;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.backup-row > div {
+  display: grid;
+}
+
+.backup-row span,
+.restore-report small,
+.restore-report span {
+  color: var(--muted);
+}
+
+.storage-usage {
+  display: flex;
+  padding: 12px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-radius: 10px;
+  background: var(--blue-soft);
+}
+
+.danger-zone,
+.update-form {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, var(--border));
+  border-radius: 12px;
+}
+
+.restore-report {
+  padding: 12px;
+  border-radius: 9px;
+  background: var(--mint-soft);
+}
+
+@media (max-width: 620px) {
+  .backup-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .backup-row .secondary-button {
+    grid-column: 1 / -1;
+  }
+}
+
 .settings-panel {
   min-height: 460px;
   padding: 24px;

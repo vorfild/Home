@@ -1,3 +1,4 @@
+from app.models.files import BackupArchive, FileAsset, RestoreReport
 from app.models.home import Equipment, MaintenancePlan, MaintenanceRecord, Meter, MeterReading
 from app.models.identity import Absence, Household, LoginAttempt, Session, TrustedDevice, User
 from app.models.preferences import Notification, PushSubscription, UserPreference
@@ -16,6 +17,8 @@ from app.models.tasks import (
 
 __all__ = [
     "Absence",
+    "BackupArchive",
+    "FileAsset",
     "Household",
     "LoginAttempt",
     "Session",
@@ -25,6 +28,7 @@ __all__ = [
     "UserPreference",
     "Notification",
     "PushSubscription",
+    "RestoreReport",
     "Equipment",
     "MaintenancePlan",
     "MaintenanceRecord",

@@ -1,6 +1,7 @@
 import { Check, Plus, RotateCw, TriangleAlert, WifiOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { FileUploader } from "./file-uploader";
 import { api, ApiError, EntityConflictStatus, jsonBody, TaskItem, User } from "../lib/api";
 import { ru } from "../lib/i18n";
 import {
@@ -45,6 +46,7 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
   const [conflicts, setConflicts] = useState<EntityConflictStatus[]>([]);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [pending, setPending] = useState(pendingTaskCount());
+  const [taskPhotos, setTaskPhotos] = useState<Record<string, string[]>>({});
 
   const load = useCallback(async () => {
     setError("");
@@ -96,6 +98,12 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
   async function complete(task: TaskItem) {
     setBusy(true);
     setError("");
+    const photoIds = taskPhotos[task.id] ?? [];
+    if (task.requires_photo && photoIds.length === 0) {
+      setError("Для завершения этого дела нужно загрузить фото");
+      setBusy(false);
+      return;
+    }
     const operationId = newOperationId();
     const before = tasks;
     const optimistic: TaskItem = {
@@ -113,6 +121,7 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
       operationId,
       taskId: task.id,
       completedSubtaskIds: task.subtasks.map((item) => item.id),
+      photoIds,
     };
     if (!navigator.onLine) {
       queueTaskCompletion(operation);
@@ -122,7 +131,7 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
       return;
     }
     try {
-      const updated = await completeTaskOperation(task, operationId);
+      const updated = await completeTaskOperation(task, operationId, photoIds);
       setTasks((items) => items.map((item) => (item.id === task.id ? updated : item)));
       if (updated.status === "completed" && view === "active") await load();
     } catch (caught) {
@@ -225,6 +234,19 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
                       <span className="status-chip">
                         <RotateCw aria-hidden="true" /> {ru.tasks.repeat}
                       </span>
+                    )}
+                    {task.requires_photo && ["open", "rejected"].includes(task.status) && (
+                      <FileUploader
+                        entityType="task_instance"
+                        entityId={task.id}
+                        purpose="photo"
+                        onUploaded={(asset) =>
+                          setTaskPhotos((current) => ({
+                            ...current,
+                            [task.id]: Array.from(new Set([...(current[task.id] ?? []), asset.id])),
+                          }))
+                        }
+                      />
                     )}
                     {task.status === "awaiting_review" && currentUser.role !== "child" && (
                       <div className="row-actions">

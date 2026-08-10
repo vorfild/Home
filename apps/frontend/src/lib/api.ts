@@ -308,6 +308,57 @@ export type SyncEvent = {
   created_at: string;
 };
 
+export type FileAsset = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  purpose: string;
+  original_name: string;
+  original_mime: string;
+  stored_mime: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  is_primary: boolean;
+  created_at: string;
+};
+
+export type BackupArchive = {
+  id: string;
+  kind: "monthly" | "manual" | "insurance";
+  checksum: string;
+  size_bytes: number;
+  app_version: string;
+  schema_version: string;
+  status: string;
+  manifest: Record<string, unknown>;
+  verified_at: string;
+  created_at: string;
+};
+
+export type DataStatus = {
+  monthly: BackupArchive | null;
+  manual: BackupArchive[];
+  insurance: BackupArchive[];
+  files_bytes: number;
+  backups_bytes: number;
+  app_version: string;
+  schema_version: string;
+};
+
+export type RestoreReport = {
+  id: string;
+  status: string;
+  source_name: string;
+  source_checksum: string;
+  counts_before: Record<string, number>;
+  counts_after: Record<string, number>;
+  warnings: string[];
+  details: string | null;
+  created_at: string;
+  completed_at: string | null;
+};
+
 let csrfToken = "";
 
 function csrfFromCookie(): string {
@@ -348,8 +399,7 @@ function errorMessage(payload: unknown): string {
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers = new Headers(init.headers);
-  if (init.body && !(init.body instanceof FormData))
-    headers.set("Content-Type", "application/json");
+  if (typeof init.body === "string") headers.set("Content-Type", "application/json");
   if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
     const token = csrfToken || csrfFromCookie();
     if (token) headers.set("X-CSRF-Token", token);
@@ -362,4 +412,27 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export function jsonBody(value: unknown): Pick<RequestInit, "body"> {
   return { body: JSON.stringify(value) };
+}
+
+export function uploadFile(
+  file: File,
+  entityType: string,
+  entityId: string,
+  purpose: "photo" | "document" | "attachment" | "avatar" = "attachment",
+  primary = false,
+): Promise<FileAsset> {
+  const query = new URLSearchParams({
+    entity_type: entityType,
+    entity_id: entityId,
+    purpose,
+    primary: String(primary),
+  });
+  return api<FileAsset>(`/files?${query}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "X-Filename": encodeURIComponent(file.name),
+    },
+    body: file,
+  });
 }
