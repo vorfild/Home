@@ -7,6 +7,7 @@ import {
   Plus,
   QrCode,
   Search,
+  Trash2,
   WifiOff,
 } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
@@ -14,6 +15,7 @@ import QRCode from "qrcode";
 
 import {
   api,
+  Category,
   jsonBody,
   StorageContents,
   StorageItem,
@@ -35,6 +37,7 @@ export function StoragePage({
 }) {
   const [tree, setTree] = useState<StorageNode[]>([]);
   const [members, setMembers] = useState<User[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [contents, setContents] = useState<StorageContents>(emptyContents);
   const [query, setQuery] = useState("");
@@ -42,6 +45,7 @@ export function StoragePage({
   const [searchItems, setSearchItems] = useState<StorageItem[] | null>(null);
   const [showNode, setShowNode] = useState(false);
   const [showItem, setShowItem] = useState(false);
+  const [showDeleteNode, setShowDeleteNode] = useState(false);
   const [qr, setQr] = useState<StorageQr | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkKind, setBulkKind] = useState<
@@ -87,6 +91,9 @@ export function StoragePage({
         loadTree(),
         api<User[]>("/family/members")
           .then(setMembers)
+          .catch(() => undefined),
+        api<Category[]>("/catalogs/categories/storage")
+          .then(setCategories)
           .catch(() => undefined),
       ]);
       if (initialQrToken) {
@@ -152,10 +159,7 @@ export function StoragePage({
 
   function chooseBulk(action: typeof bulkKind) {
     setBulkKind(action);
-    if (action === "category") {
-      const category = window.prompt(ru.storage.categoryPrompt);
-      if (category) void bulkValue("category", category);
-    } else if (action === "timer") {
+    if (action === "timer") {
       const raw = window.prompt(ru.storage.extendPrompt, "30");
       const days = Number(raw);
       if (raw && Number.isInteger(days) && days > 0) {
@@ -293,6 +297,13 @@ export function StoragePage({
               <button className="secondary-button" onClick={() => void createQr(false)}>
                 <QrCode /> {contents.node?.has_qr ? ru.storage.openQr : ru.storage.createQr}
               </button>
+              <button
+                className="secondary-button danger-button"
+                type="button"
+                onClick={() => setShowDeleteNode(true)}
+              >
+                <Trash2 aria-hidden="true" /> Удалить раздел
+              </button>
             </div>
           )}
           {selected.length > 0 && canEdit && (
@@ -340,6 +351,21 @@ export function StoragePage({
                   ))}
                 </select>
               )}
+              {bulkKind === "category" && (
+                <select
+                  defaultValue=""
+                  onChange={(event) =>
+                    event.target.value && void bulkValue("category", event.target.value)
+                  }
+                >
+                  <option value="">{ru.storage.changeCategory}</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.name}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
           <div className="storage-items-grid">
@@ -383,10 +409,28 @@ export function StoragePage({
         <CreateItemDialog
           nodeId={currentId}
           members={[]}
+          categories={categories}
           onClose={() => setShowItem(false)}
           onCreated={() => {
             setShowItem(false);
             void openNode(currentId);
+          }}
+        />
+      )}
+      {showDeleteNode && contents.node && (
+        <DeleteNodeDialog
+          node={contents.node}
+          targets={tree.filter(
+            (candidate) =>
+              candidate.id !== contents.node?.id &&
+              !candidate.path.some((part) => part.id === contents.node?.id),
+          )}
+          onClose={() => setShowDeleteNode(false)}
+          onDeleted={() => {
+            setShowDeleteNode(false);
+            setQr(null);
+            void loadTree();
+            void openNode(null);
           }}
         />
       )}
@@ -539,11 +583,13 @@ function CreateNodeDialog({
 
 function CreateItemDialog({
   nodeId,
+  categories,
   onClose,
   onCreated,
 }: {
   nodeId: string;
   members: User[];
+  categories: Category[];
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -581,7 +627,14 @@ function CreateItemDialog({
           <div className="form-columns">
             <label>
               {ru.storage.category}
-              <input name="category" />
+              <select name="category" defaultValue="">
+                <option value="">{ru.storage.noCategory}</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.name}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               {ru.storage.quantity}
@@ -609,6 +662,92 @@ function CreateItemDialog({
               {ru.common.cancel}
             </button>
             <button className="primary-button">{ru.common.save}</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
+function DeleteNodeDialog({
+  node,
+  targets,
+  onClose,
+  onDeleted,
+}: {
+  node: StorageNode;
+  targets: StorageNode[];
+  onClose: () => void;
+  onDeleted: () => void;
+}) {
+  const [strategy, setStrategy] = useState<"move" | "delete">("move");
+  const [error, setError] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const data = new FormData(event.currentTarget);
+    try {
+      setError("");
+      await api(`/storage/nodes/${node.id}/delete`, {
+        method: "POST",
+        ...jsonBody({
+          strategy,
+          target_node_id: strategy === "move" ? data.get("target_node_id") : null,
+          file_action: data.get("file_action"),
+        }),
+      });
+      onDeleted();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось удалить раздел");
+    }
+  }
+
+  return (
+    <div className="modal-backdrop">
+      <section className="modal-card" role="dialog" aria-modal="true">
+        <h2>Удалить «{node.name}»?</h2>
+        <p>Раздел будет храниться в корзине 30 дней. Отмена не изменит данные.</p>
+        <form className="form-grid" onSubmit={(event) => void submit(event)}>
+          <label>
+            Что сделать с содержимым
+            <select
+              value={strategy}
+              onChange={(event) => setStrategy(event.target.value as typeof strategy)}
+            >
+              <option value="move">Переместить в другой раздел</option>
+              <option value="delete">Удалить всё поддерево</option>
+            </select>
+          </label>
+          {strategy === "move" && (
+            <label>
+              Куда переместить
+              <select name="target_node_id" required defaultValue="">
+                <option value="" disabled>
+                  Выберите раздел
+                </option>
+                {targets.map((target) => (
+                  <option key={target.id} value={target.id}>
+                    {target.path.map((part) => part.name).join(" / ")}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label>
+            После окончательной очистки
+            <select name="file_action" defaultValue="keep">
+              <option value="keep">Сохранить связанные файлы</option>
+              <option value="delete">Удалить связанные файлы</option>
+            </select>
+          </label>
+          {error && <p className="form-error">{error}</p>}
+          <div className="modal-actions">
+            <button type="button" className="secondary-button" onClick={onClose}>
+              {ru.common.cancel}
+            </button>
+            <button type="submit" className="primary-button danger-button">
+              В корзину
+            </button>
           </div>
         </form>
       </section>

@@ -1,9 +1,11 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useState } from "react";
 import {
+  Archive,
   Bell,
   CheckCheck,
   Database,
   Download,
+  FolderCog,
   GitMerge,
   HardDrive,
   MonitorCog,
@@ -17,18 +19,31 @@ import {
 import {
   api,
   AppNotification,
+  ArchiveItem,
   BackupArchive,
+  Category,
   DataStatus,
   jsonBody,
   ModuleSettings,
   RestoreReport,
+  Room,
   ServerSettings,
   SyncConflict,
+  TrashItem,
   User,
   UserPreference,
 } from "../lib/api";
 
-type Tab = "profile" | "notifications" | "conflicts" | "appearance" | "modules" | "server" | "data";
+type Tab =
+  | "profile"
+  | "notifications"
+  | "conflicts"
+  | "catalogs"
+  | "archive"
+  | "appearance"
+  | "modules"
+  | "server"
+  | "data";
 
 const eventLabels: Record<string, string> = {
   task_assigned: "Назначено новое дело",
@@ -63,6 +78,10 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
   const [server, setServer] = useState<ServerSettings | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [conflicts, setConflicts] = useState<SyncConflict[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [archive, setArchive] = useState<ArchiveItem[]>([]);
+  const [trash, setTrash] = useState<TrashItem[]>([]);
   const [dataStatus, setDataStatus] = useState<DataStatus | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -79,7 +98,25 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
       setNotifications(noticeData);
       applyAppearance(prefs);
       if (currentUser.role !== "child") {
-        setConflicts(await api<SyncConflict[]>("/sync/conflicts"));
+        const [
+          conflictData,
+          roomData,
+          taskCategories,
+          shoppingCategories,
+          storageCategories,
+          archiveData,
+        ] = await Promise.all([
+          api<SyncConflict[]>("/sync/conflicts"),
+          api<Room[]>("/catalogs/rooms?include_inactive=true"),
+          api<Category[]>("/catalogs/categories/task?include_inactive=true"),
+          api<Category[]>("/catalogs/categories/shopping?include_inactive=true"),
+          api<Category[]>("/catalogs/categories/storage?include_inactive=true"),
+          api<ArchiveItem[]>("/lifecycle/archive"),
+        ]);
+        setConflicts(conflictData);
+        setRooms(roomData);
+        setCategories([...taskCategories, ...shoppingCategories, ...storageCategories]);
+        setArchive(archiveData);
       }
       if (currentUser.role === "admin") {
         const [serverData, storageData] = await Promise.all([
@@ -88,6 +125,7 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
         ]);
         setServer(serverData);
         setDataStatus(storageData);
+        setTrash(await api<TrashItem[]>("/lifecycle/trash"));
       }
       setError("");
     } catch (caught) {
@@ -182,6 +220,8 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
     { id: "profile", label: "Профиль", icon: UserRound },
     { id: "notifications", label: "Уведомления", icon: Bell },
     { id: "conflicts", label: "Конфликты", icon: GitMerge },
+    { id: "catalogs", label: "Справочники", icon: FolderCog },
+    { id: "archive", label: "Архив", icon: Archive },
     { id: "appearance", label: "Оформление", icon: Palette },
     { id: "modules", label: "Модули", icon: MonitorCog },
     { id: "server", label: "Сервер", icon: Server },
@@ -206,7 +246,8 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
               (item) =>
                 (currentUser.role === "admin" ||
                   !["modules", "server", "data"].includes(item.id)) &&
-                (currentUser.role !== "child" || item.id !== "conflicts"),
+                (currentUser.role !== "child" ||
+                  !["conflicts", "catalogs", "archive"].includes(item.id)),
             )
             .map(({ id, label, icon: Icon }) => (
               <button key={id} className={tab === id ? "is-active" : ""} onClick={() => setTab(id)}>
@@ -281,6 +322,17 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
                   setError(caught instanceof Error ? caught.message : "Ошибка разрешения"),
                 )
               }
+            />
+          )}
+          {tab === "catalogs" && currentUser.role !== "child" && (
+            <CatalogSettings rooms={rooms} categories={categories} onChanged={load} />
+          )}
+          {tab === "archive" && currentUser.role !== "child" && (
+            <LifecycleSettings
+              archive={archive}
+              trash={trash}
+              admin={currentUser.role === "admin"}
+              onChanged={load}
             />
           )}
           {tab === "modules" && modules && currentUser.role === "admin" && (
@@ -368,6 +420,312 @@ export function SettingsPage({ currentUser }: { currentUser: User }) {
         </section>
       </div>
     </main>
+  );
+}
+
+const domainLabels: Record<Category["domain"], string> = {
+  task: "Дела",
+  shopping: "Покупки",
+  storage: "Кладовая",
+};
+
+function CatalogSettings({
+  rooms,
+  categories,
+  onChanged,
+}: {
+  rooms: Room[];
+  categories: Category[];
+  onChanged: () => Promise<void>;
+}) {
+  const [error, setError] = useState("");
+
+  async function act(operation: () => Promise<unknown>) {
+    try {
+      setError("");
+      await operation();
+      await onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось изменить справочник");
+    }
+  }
+
+  function createRoom(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    void act(() =>
+      api("/catalogs/rooms", {
+        method: "POST",
+        ...jsonBody({
+          name: data.get("name"),
+          sort_order: Number(data.get("sort_order")),
+          color: data.get("color"),
+          icon: data.get("icon"),
+        }),
+      }),
+    ).then(() => form.reset());
+  }
+
+  function createCategory(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const data = new FormData(form);
+    const domain = String(data.get("domain"));
+    void act(() =>
+      api(`/catalogs/categories/${domain}`, {
+        method: "POST",
+        ...jsonBody({
+          name: data.get("name"),
+          sort_order: Number(data.get("sort_order")),
+          color: data.get("color"),
+          icon: data.get("icon"),
+        }),
+      }),
+    ).then(() => form.reset());
+  }
+
+  return (
+    <>
+      <h2>Комнаты и категории</h2>
+      <p>Отключённые значения исчезают из новых форм, но остаются в старых записях.</p>
+      {error && <p className="form-error">{error}</p>}
+      <h3>Комнаты</h3>
+      <form className="inline-form" onSubmit={createRoom}>
+        <label>
+          Новая комната
+          <input name="name" required maxLength={100} />
+        </label>
+        <label>
+          Порядок
+          <input name="sort_order" type="number" min="0" defaultValue="0" />
+        </label>
+        <label>
+          Цвет
+          <input name="color" type="color" defaultValue="#8DB8A8" />
+        </label>
+        <label>
+          Иконка
+          <input name="icon" defaultValue="home" required maxLength={40} />
+        </label>
+        <button className="primary-button">Добавить</button>
+      </form>
+      <div className="card module-list compact-list">
+        {rooms.map((room) => (
+          <article className="module-row" key={room.id}>
+            <span className="catalog-swatch" style={{ backgroundColor: room.color }} />
+            <div className="module-row-copy">
+              <strong>{room.name}</strong>
+              <span>{room.is_active ? "Используется" : "Отключена"}</span>
+            </div>
+            <div className="row-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  const name = window.prompt("Название комнаты", room.name)?.trim();
+                  if (!name) return;
+                  const sort = window.prompt("Порядок", String(room.sort_order));
+                  const color = window.prompt("Цвет #RRGGBB", room.color)?.trim();
+                  const icon = window.prompt("Иконка", room.icon)?.trim();
+                  if (sort !== null && color && icon)
+                    void act(() =>
+                      api(`/catalogs/rooms/${room.id}`, {
+                        method: "PATCH",
+                        ...jsonBody({ name, sort_order: Number(sort), color, icon }),
+                      }),
+                    );
+                }}
+              >
+                Изменить
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  void act(() =>
+                    api(`/catalogs/rooms/${room.id}`, {
+                      method: "PATCH",
+                      ...jsonBody({ is_active: !room.is_active }),
+                    }),
+                  )
+                }
+              >
+                {room.is_active ? "Отключить" : "Вернуть"}
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+      <h3>Категории</h3>
+      <form className="inline-form" onSubmit={createCategory}>
+        <label>
+          Раздел
+          <select name="domain" defaultValue="task">
+            {Object.entries(domainLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Новая категория
+          <input name="name" required maxLength={100} />
+        </label>
+        <label>
+          Порядок
+          <input name="sort_order" type="number" min="0" defaultValue="0" />
+        </label>
+        <label>
+          Цвет
+          <input name="color" type="color" defaultValue="#5E7FA3" />
+        </label>
+        <label>
+          Иконка
+          <input name="icon" defaultValue="tag" required maxLength={40} />
+        </label>
+        <button className="primary-button">Добавить</button>
+      </form>
+      {(Object.keys(domainLabels) as Category["domain"][]).map((domain) => (
+        <section key={domain} className="catalog-section">
+          <h4>{domainLabels[domain]}</h4>
+          <div className="card module-list compact-list">
+            {categories
+              .filter((category) => category.domain === domain)
+              .map((category) => (
+                <article className="module-row" key={category.id}>
+                  <span className="catalog-swatch" style={{ backgroundColor: category.color }} />
+                  <div className="module-row-copy">
+                    <strong>{category.name}</strong>
+                    <span>
+                      {category.is_default ? "Стандартная" : "Семейная"} ·{" "}
+                      {category.is_active ? "используется" : "отключена"}
+                    </span>
+                  </div>
+                  <div className="row-actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const name = window.prompt("Название категории", category.name)?.trim();
+                        if (!name) return;
+                        const sort = window.prompt("Порядок", String(category.sort_order));
+                        const color = window.prompt("Цвет #RRGGBB", category.color)?.trim();
+                        const icon = window.prompt("Иконка", category.icon)?.trim();
+                        if (sort !== null && color && icon)
+                          void act(() =>
+                            api(`/catalogs/categories/${domain}/${category.id}`, {
+                              method: "PATCH",
+                              ...jsonBody({ name, sort_order: Number(sort), color, icon }),
+                            }),
+                          );
+                      }}
+                    >
+                      Изменить
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void act(() =>
+                          api(`/catalogs/categories/${domain}/${category.id}`, {
+                            method: "PATCH",
+                            ...jsonBody({ is_active: !category.is_active }),
+                          }),
+                        )
+                      }
+                    >
+                      {category.is_active ? "Отключить" : "Вернуть"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+          </div>
+        </section>
+      ))}
+    </>
+  );
+}
+
+function LifecycleSettings({
+  archive,
+  trash,
+  admin,
+  onChanged,
+}: {
+  archive: ArchiveItem[];
+  trash: TrashItem[];
+  admin: boolean;
+  onChanged: () => Promise<void>;
+}) {
+  const [error, setError] = useState("");
+
+  async function restore(id: string) {
+    try {
+      setError("");
+      await api(`/lifecycle/trash/${id}/restore`, { method: "POST" });
+      await onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось восстановить запись");
+    }
+  }
+
+  async function purge(item: TrashItem) {
+    if (!window.confirm(`Удалить «${item.title}» безвозвратно?`)) return;
+    try {
+      setError("");
+      await api(`/lifecycle/trash/${item.id}`, { method: "DELETE" });
+      await onChanged();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось очистить запись");
+    }
+  }
+
+  return (
+    <>
+      <h2>Архив</h2>
+      <p>Завершённые и отключённые записи доступны для истории, но не мешают текущей работе.</p>
+      {error && <p className="form-error">{error}</p>}
+      <div className="card module-list compact-list">
+        {archive.map((item) => (
+          <article className="module-row" key={`${item.entity_type}-${item.entity_id}`}>
+            <Archive aria-hidden="true" />
+            <div className="module-row-copy">
+              <strong>{item.title}</strong>
+              <span>
+                {item.detail} · {new Date(item.archived_at).toLocaleDateString("ru-RU")}
+              </span>
+            </div>
+          </article>
+        ))}
+        {archive.length === 0 && <p className="empty-state">Архив пока пуст.</p>}
+      </div>
+      {admin && (
+        <section className="danger-zone">
+          <h3>Корзина на 30 дней</h3>
+          <p>До указанной даты запись можно восстановить вместе со структурой и QR.</p>
+          <div className="card module-list compact-list">
+            {trash.map((item) => (
+              <article className="module-row" key={item.id}>
+                <div className="module-row-copy">
+                  <strong>{item.title}</strong>
+                  <span>
+                    Очистка {new Date(item.purge_after).toLocaleDateString("ru-RU")} · файлы:{" "}
+                    {item.file_action === "keep" ? "сохранить" : "удалить"}
+                  </span>
+                </div>
+                <div className="row-actions">
+                  <button type="button" onClick={() => void restore(item.id)}>
+                    Восстановить
+                  </button>
+                  <button type="button" onClick={() => void purge(item)}>
+                    Удалить навсегда
+                  </button>
+                </div>
+              </article>
+            ))}
+            {trash.length === 0 && <p className="empty-state">Корзина пуста.</p>}
+          </div>
+        </section>
+      )}
+    </>
   );
 }
 

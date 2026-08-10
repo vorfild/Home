@@ -107,6 +107,7 @@ class MaintenanceRecord(TimestampMixin, Base):
     attachment_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     keep_forever: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     purge_after: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
 
 
 class Meter(TimestampMixin, Base):

@@ -62,7 +62,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -71,7 +72,8 @@ button {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--focus) 72%, transparent);
   outline-offset: 3px;
 }
@@ -2376,6 +2378,40 @@ h2 {
   text-align: center;
 }
 
+.catalog-section {
+  margin-top: 22px;
+}
+
+.catalog-section h4 {
+  margin: 0 0 8px;
+}
+
+.compact-list .module-row {
+  min-height: 62px;
+}
+
+.catalog-swatch {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--text) 16%, transparent);
+  border-radius: 50%;
+}
+
+.settings-panel > .inline-form {
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  .secondary-button,
+  .file-upload-button {
+    min-height: 44px;
+  }
+}
+
 .conflict-list {
   display: grid;
   gap: 12px;
@@ -3137,7 +3173,7 @@ h2 {
 
 .shopping-add {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(130px, 220px) 52px;
+  grid-template-columns: minmax(0, 1fr) repeat(2, minmax(120px, 190px)) 52px;
   padding: 18px 24px;
   gap: 10px;
 }
@@ -3202,7 +3238,19 @@ h2 {
 
   .shopping-add select {
     grid-column: 1 / -1;
+  }
+
+  .shopping-add select:first-of-type {
     grid-row: 2;
+  }
+
+  .shopping-add select:nth-of-type(2) {
+    grid-row: 3;
+  }
+
+  .shopping-add button {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .frequent-items {

@@ -12,6 +12,7 @@ from app.db.session import get_db_session
 from app.models.identity import Household, User, UserRole
 from app.schemas.identity import AuthResponse, InitialSetupRequest, SetupStatus, UserRead
 from app.services.auth import create_session, set_session_cookies
+from app.services.catalogs import seed_default_categories
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
@@ -52,6 +53,7 @@ async def initial_setup(
         is_active=True,
     )
     db.add(admin)
+    seed_default_categories(db, household.id)
     try:
         await db.flush()
         _, session_token, csrf_token = await create_session(db, request, user=admin)

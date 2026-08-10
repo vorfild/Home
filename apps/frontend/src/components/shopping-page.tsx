@@ -1,7 +1,7 @@
-import { Check, ChevronDown, Plus, ShoppingBag, WifiOff } from "lucide-react";
+import { Check, ChevronDown, Plus, ShoppingBag, Trash2, WifiOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import { api, ApiError, jsonBody, ShoppingItem, ShoppingList, User } from "../lib/api";
+import { api, ApiError, Category, jsonBody, ShoppingItem, ShoppingList, User } from "../lib/api";
 import { ru } from "../lib/i18n";
 import {
   cachedShopping,
@@ -25,6 +25,7 @@ export function ShoppingPage({ currentUser }: { currentUser: User }) {
   const [proposals, setProposals] = useState<ShoppingItem[]>([]);
   const [members, setMembers] = useState<User[]>([]);
   const [frequent, setFrequent] = useState<Frequent[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [completing, setCompleting] = useState<ShoppingList | null>(null);
   const [offline, setOffline] = useState(!navigator.onLine);
@@ -40,12 +41,14 @@ export function ShoppingPage({ currentUser }: { currentUser: User }) {
         setLists(loaded);
         if (view !== "history") cacheShopping(loaded);
       }
-      const [people, popular] = await Promise.all([
+      const [people, popular, categoryData] = await Promise.all([
         api<User[]>("/family/members"),
         api<Frequent[]>("/shopping/frequent"),
+        api<Category[]>("/catalogs/categories/shopping"),
       ]);
       setMembers(people);
       setFrequent(popular);
+      setCategories(categoryData);
       setOffline(false);
       setError("");
     } catch (caught) {
@@ -158,6 +161,19 @@ export function ShoppingPage({ currentUser }: { currentUser: User }) {
     setProposals((items) => items.filter((candidate) => candidate.id !== item.id));
   }
 
+  async function trashList(list: ShoppingList) {
+    if (!window.confirm(`Поместить «${list.title}» в корзину на 30 дней?`)) return;
+    try {
+      await api(`/lifecycle/trash/entities/shopping_list/${list.id}`, {
+        method: "POST",
+        ...jsonBody({ file_action: "keep" }),
+      });
+      setLists((items) => items.filter((item) => item.id !== list.id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : ru.common.error);
+    }
+  }
+
   const memberNames = useMemo(
     () => new Map(members.map((member) => [member.id, member.name])),
     [members],
@@ -228,10 +244,12 @@ export function ShoppingPage({ currentUser }: { currentUser: User }) {
               memberNames={memberNames}
               members={members}
               frequent={frequent}
+              categories={categories}
               onToggle={toggle}
               onAdd={addItem}
               canManage={currentUser.role !== "child"}
               onComplete={() => setCompleting(list)}
+              onTrash={() => void trashList(list)}
             />
           ))}
           {lists.length === 0 && <p className="empty-state">{ru.shopping.empty}</p>}
@@ -269,26 +287,35 @@ function ShoppingListCard({
   memberNames,
   members,
   frequent,
+  categories,
   onToggle,
   onAdd,
   canManage,
   onComplete,
+  onTrash,
 }: {
   list: ShoppingList;
   memberNames: Map<string, string>;
   members: User[];
   frequent: Frequent[];
+  categories: Category[];
   onToggle: (list: ShoppingList, item: ShoppingItem) => Promise<void>;
   onAdd: (list: ShoppingList, payload: Record<string, unknown>) => Promise<void>;
   canManage: boolean;
   onComplete: () => void;
+  onTrash: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [recipient, setRecipient] = useState("");
+  const [category, setCategory] = useState("другое");
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft.trim()) return;
-    await onAdd(list, { name: draft.trim(), recipient_id: recipient || null });
+    await onAdd(list, {
+      name: draft.trim(),
+      recipient_id: recipient || null,
+      category,
+    });
     setDraft("");
   }
   return (
@@ -310,6 +337,16 @@ function ShoppingListCard({
           {canManage && list.status !== "completed" && (
             <button type="button" className="secondary-button" onClick={onComplete}>
               {ru.shopping.completeList}
+            </button>
+          )}
+          {canManage && (
+            <button
+              type="button"
+              className="icon-button danger-button"
+              onClick={onTrash}
+              aria-label={`Удалить список: ${list.title}`}
+            >
+              <Trash2 aria-hidden="true" />
             </button>
           )}
         </div>
@@ -351,6 +388,17 @@ function ShoppingListCard({
             onChange={(event) => setDraft(event.target.value)}
             placeholder={ru.shopping.addItem}
           />
+          <select
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            aria-label="Категория"
+          >
+            {categories.map((item) => (
+              <option key={item.id} value={item.name}>
+                {item.name}
+              </option>
+            ))}
+          </select>
           <select
             value={recipient}
             onChange={(event) => setRecipient(event.target.value)}

@@ -37,8 +37,8 @@ from app.models.identity import Session, new_id
 from app.services.auth import now_utc
 from app.services.files import sha256_file
 
-APP_VERSION = "0.9.0"
-CURRENT_SCHEMA = "0009_files_backups_transfer"
+APP_VERSION = "1.0.0"
+CURRENT_SCHEMA = "0010_lifecycle_catalogs"
 SCHEMA_ORDER = [
     "0001_project_foundation",
     "0002_identity_and_family",
@@ -48,6 +48,7 @@ SCHEMA_ORDER = [
     "0006_home",
     "0007_calendar_notifications_settings",
     "0008_realtime_offline_conflicts",
+    "0009_files_backups_transfer",
     CURRENT_SCHEMA,
 ]
 CONTROL_TABLES = {"backup_archives", "restore_reports"}

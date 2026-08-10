@@ -24,7 +24,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Домовой API",
-    version="0.9.0",
+    version="1.0.0",
     docs_url="/api/docs",
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
@@ -33,20 +33,9 @@ app.include_router(api_router)
 
 
 @app.middleware("http")
-async def prevent_identity_caching(
-    request: Request, call_next: RequestResponseEndpoint
-) -> Response:
+async def prevent_private_caching(request: Request, call_next: RequestResponseEndpoint) -> Response:
     response = await call_next(request)
-    identity_prefixes = (
-        "/api/v1/auth",
-        "/api/v1/setup",
-        "/api/v1/family",
-        "/api/v1/tablet",
-        "/api/v1/settings",
-        "/api/v1/files",
-        "/api/v1/data",
-    )
-    if request.url.path.startswith(identity_prefixes):
+    if request.url.path.startswith("/api/v1") and request.url.path != "/api/v1/sync/stream":
         response.headers["Cache-Control"] = "no-store"
     if (
         request.method not in {"GET", "HEAD", "OPTIONS"}

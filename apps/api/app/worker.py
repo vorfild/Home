@@ -14,6 +14,7 @@ from app.db.session import SessionFactory, engine
 from app.models.identity import LoginAttempt, Session
 from app.services.backups import create_monthly_if_due
 from app.services.home import process_home_schedules
+from app.services.lifecycle import purge_expired_trash, unlink_purged_files
 from app.services.notifications import dispatch_notifications, generate_due_notifications
 from app.services.storage import process_storage_timers
 
@@ -46,10 +47,12 @@ async def clean_identity_records() -> None:
 async def process_domain_schedules() -> None:
     async with SessionFactory.begin() as session:
         await process_storage_timers(session)
+        purge_result = await purge_expired_trash(session)
         await process_home_schedules(session)
         await generate_due_notifications(session)
         await dispatch_notifications(session)
         await create_monthly_if_due(session)
+    await unlink_purged_files(purge_result.paths)
 
 
 async def run_worker() -> None:

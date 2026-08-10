@@ -137,7 +137,7 @@ async def get_server_settings(
         domain=domain,
         https_enabled=str(domain).startswith("https://") or settings.cookie_secure,
         files_dir=str(settings.files_dir),
-        app_version="0.9.0",
+        app_version="1.0.0",
         web_push_configured=bool(
             settings.vapid_public_key and settings.vapid_private_key.get_secret_value()
         ),

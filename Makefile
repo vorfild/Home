@@ -1,8 +1,10 @@
-.PHONY: help install lint format typecheck test build check compose-up compose-down
+.PHONY: help install lint format typecheck test build check load-check release-check compose-up compose-down
 
 help:
 	@echo "make install    Install local development dependencies"
 	@echo "make check      Run formatting checks, lint, types, tests and frontend build"
+	@echo "make load-check Verify declared scale: 20 users, 50k items, 100k task instances"
+	@echo "make release-check Run the complete local release gate"
 	@echo "make compose-up Build and launch the five production services"
 
 install:
@@ -35,6 +37,12 @@ check:
 	$(MAKE) typecheck
 	$(MAKE) test
 	$(MAKE) build
+
+load-check:
+	python3 scripts/load-check.py
+
+release-check:
+	./scripts/release-check.sh
 
 compose-up:
 	docker compose up -d --build

@@ -23,6 +23,7 @@ from app.models.tasks import (
 from app.schemas.common import Message
 from app.schemas.tasks import TaskComplete, TaskCreate, TaskHistoryRead, TaskRead, TaskReview
 from app.services.auth import now_utc
+from app.services.lifecycle import trash_entity
 from app.services.notifications import create_notification
 from app.services.tasks import build_next_instance, queue_assignee
 
@@ -243,7 +244,10 @@ async def list_tasks(
         select(TaskInstance)
         .join(TaskDefinition)
         .options(selectinload(TaskInstance.task).options(*task_options()))
-        .where(TaskDefinition.household_id == auth.user.household_id)
+        .where(
+            TaskDefinition.household_id == auth.user.household_id,
+            TaskDefinition.is_active.is_(True),
+        )
     )
     if view == "completed":
         query = query.where(TaskInstance.status == "completed")
@@ -286,6 +290,7 @@ async def today_tasks(
         .options(selectinload(TaskInstance.task).options(*task_options()))
         .where(
             TaskDefinition.household_id == auth.user.household_id,
+            TaskDefinition.is_active.is_(True),
             or_(TaskInstance.due_at <= end, TaskInstance.due_at.is_(None)),
         )
     )
@@ -510,14 +515,13 @@ async def archive_task(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> Message:
     ensure_adult(auth)
-    task = await db.scalar(
-        select(TaskDefinition).where(
-            TaskDefinition.id == definition_id,
-            TaskDefinition.household_id == auth.user.household_id,
-        )
+    await trash_entity(
+        db,
+        household_id=auth.user.household_id,
+        entity_type="task",
+        entity_id=definition_id,
+        deleted_by_id=auth.user.id,
+        file_action="keep",
     )
-    if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Дело не найдено")
-    task.is_active = False
     await db.commit()
-    return Message(message="Дело перенесено в архив")
+    return Message(message="Дело помещено в корзину на 30 дней")

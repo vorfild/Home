@@ -1,8 +1,17 @@
-import { Check, Plus, RotateCw, TriangleAlert, WifiOff } from "lucide-react";
+import { Check, Plus, RotateCw, Trash2, TriangleAlert, WifiOff } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
 import { FileUploader } from "./file-uploader";
-import { api, ApiError, EntityConflictStatus, jsonBody, TaskItem, User } from "../lib/api";
+import {
+  api,
+  ApiError,
+  Category,
+  EntityConflictStatus,
+  jsonBody,
+  Room,
+  TaskItem,
+  User,
+} from "../lib/api";
 import { ru } from "../lib/i18n";
 import {
   completeTaskOperation,
@@ -40,6 +49,8 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
   const [view, setView] = useState<View>("active");
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [members, setMembers] = useState<User[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -51,14 +62,18 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [taskData, memberData, conflictData] = await Promise.all([
+      const [taskData, memberData, conflictData, roomData, categoryData] = await Promise.all([
         api<TaskItem[]>(`/tasks?view=${view}`),
         api<User[]>("/family/members"),
         api<EntityConflictStatus[]>("/sync/conflicts/entities?entity_type=task"),
+        api<Room[]>("/catalogs/rooms"),
+        api<Category[]>("/catalogs/categories/task"),
       ]);
       setTasks(taskData);
       setMembers(memberData.filter((member) => member.is_active));
       setConflicts(conflictData);
+      setRooms(roomData);
+      setCategories(categoryData);
       setOffline(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : ru.common.error);
@@ -156,6 +171,16 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
       ...jsonBody({ decision, comment }),
     });
     setTasks((items) => items.map((item) => (item.id === task.id ? updated : item)));
+  }
+
+  async function remove(task: TaskItem) {
+    if (!window.confirm(`Поместить «${task.title}» в корзину на 30 дней?`)) return;
+    try {
+      await api(`/tasks/${task.definition_id}`, { method: "DELETE" });
+      setTasks((items) => items.filter((item) => item.definition_id !== task.definition_id));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : ru.common.error);
+    }
   }
 
   return (
@@ -258,6 +283,16 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
                         </button>
                       </div>
                     )}
+                    {currentUser.role !== "child" && (
+                      <button
+                        className="icon-button danger-button"
+                        type="button"
+                        aria-label={`Удалить дело: ${task.title}`}
+                        onClick={() => void remove(task)}
+                      >
+                        <Trash2 aria-hidden="true" />
+                      </button>
+                    )}
                   </article>
                 );
               })}
@@ -269,6 +304,8 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
       {showCreate && (
         <TaskCreateDialog
           members={members}
+          rooms={rooms}
+          categories={categories}
           onClose={() => setShowCreate(false)}
           onCreated={(task) => {
             setTasks((items) => [task, ...items]);
@@ -282,10 +319,14 @@ export function TasksPage({ currentUser }: { currentUser: User }) {
 
 function TaskCreateDialog({
   members,
+  rooms,
+  categories,
   onClose,
   onCreated,
 }: {
   members: User[];
+  rooms: Room[];
+  categories: Category[];
   onClose: () => void;
   onCreated: (task: TaskItem) => void;
 }) {
@@ -350,12 +391,22 @@ function TaskCreateDialog({
             </label>
             <label>
               {ru.tasks.fields.room}
-              <input name="room" />
+              <select name="room" defaultValue="">
+                <option value="">Без комнаты</option>
+                {rooms.map((room) => (
+                  <option key={room.id} value={room.name}>
+                    {room.name}
+                  </option>
+                ))}
+              </select>
             </label>
             <label>
               {ru.tasks.fields.category}
               <select name="category" defaultValue="уборка">
-                {ru.tasks.categories.map((category) => (
+                {(categories.length
+                  ? categories.map((item) => item.name)
+                  : ru.tasks.categories
+                ).map((category) => (
                   <option key={category}>{category}</option>
                 ))}
               </select>

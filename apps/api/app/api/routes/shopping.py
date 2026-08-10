@@ -131,7 +131,10 @@ async def list_shopping_lists(
     query = (
         select(ShoppingList)
         .options(selectinload(ShoppingList.items))
-        .where(ShoppingList.household_id == auth.user.household_id)
+        .where(
+            ShoppingList.household_id == auth.user.household_id,
+            ShoppingList.archived_at.is_(None),
+        )
     )
     if view == "current":
         query = query.where(ShoppingList.status.in_(["no_date", "in_progress"]))
@@ -163,6 +166,7 @@ async def today_shopping(
             .options(selectinload(ShoppingList.items))
             .where(
                 ShoppingList.household_id == auth.user.household_id,
+                ShoppingList.archived_at.is_(None),
                 ShoppingList.scheduled_at >= start,
                 ShoppingList.scheduled_at <= end,
                 ShoppingList.status.in_(["planned", "in_progress"]),

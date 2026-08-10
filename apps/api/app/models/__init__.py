@@ -1,6 +1,7 @@
 from app.models.files import BackupArchive, FileAsset, RestoreReport
 from app.models.home import Equipment, MaintenancePlan, MaintenanceRecord, Meter, MeterReading
 from app.models.identity import Absence, Household, LoginAttempt, Session, TrustedDevice, User
+from app.models.lifecycle import Category, Room, TrashEntry
 from app.models.preferences import Notification, PushSubscription, UserPreference
 from app.models.shopping import ShoppingItem, ShoppingList
 from app.models.storage import StorageItem, StorageNode
@@ -18,6 +19,7 @@ from app.models.tasks import (
 __all__ = [
     "Absence",
     "BackupArchive",
+    "Category",
     "FileAsset",
     "Household",
     "LoginAttempt",
@@ -29,6 +31,7 @@ __all__ = [
     "Notification",
     "PushSubscription",
     "RestoreReport",
+    "Room",
     "Equipment",
     "MaintenancePlan",
     "MaintenanceRecord",
@@ -48,4 +51,5 @@ __all__ = [
     "TaskInstance",
     "TaskQueueMember",
     "TaskSubtask",
+    "TrashEntry",
 ]

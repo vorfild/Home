@@ -323,6 +323,39 @@ export type FileAsset = {
   created_at: string;
 };
 
+export type Room = {
+  id: string;
+  name: string;
+  sort_order: number;
+  color: string;
+  icon: string;
+  is_active: boolean;
+};
+
+export type Category = Room & {
+  domain: "task" | "shopping" | "storage";
+  is_default: boolean;
+};
+
+export type ArchiveItem = {
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  archived_at: string;
+  detail: string;
+};
+
+export type TrashItem = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  deleted_by_id: string | null;
+  deleted_at: string;
+  purge_after: string;
+  file_action: "keep" | "delete";
+};
+
 export type BackupArchive = {
   id: string;
   kind: "monthly" | "manual" | "insurance";

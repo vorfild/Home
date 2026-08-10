@@ -45,6 +45,20 @@ async def load_asset(db: AsyncSession, household_id: str, asset_id: str) -> File
     return asset
 
 
+async def ensure_asset_access(db: AsyncSession, auth: AuthContext, asset: FileAsset) -> None:
+    if asset.entity_type == "preserved":
+        if auth.user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Сохранённые файлы доступны администратору")
+        return
+    await ensure_entity_access(
+        db,
+        household_id=auth.user.household_id,
+        user=auth.user,
+        entity_type=asset.entity_type,
+        entity_id=asset.entity_id,
+    )
+
+
 @router.post("", response_model=FileRead, status_code=status.HTTP_201_CREATED)
 async def upload_file(
     request: Request,
@@ -122,6 +136,17 @@ async def list_files(
     entity_type: str,
     entity_id: str,
 ) -> list[FileAsset]:
+    if entity_type == "preserved":
+        if auth.user.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Сохранённые файлы доступны администратору")
+    else:
+        await ensure_entity_access(
+            db,
+            household_id=auth.user.household_id,
+            user=auth.user,
+            entity_type=entity_type,
+            entity_id=entity_id,
+        )
     return list(
         await db.scalars(
             select(FileAsset)
@@ -144,6 +169,7 @@ async def get_file(
     thumbnail: bool = False,
 ) -> FileResponse:
     asset = await load_asset(db, auth.user.household_id, asset_id)
+    await ensure_asset_access(db, auth, asset)
     relative = asset.thumbnail_path if thumbnail and asset.thumbnail_path else asset.stored_path
     path = settings.files_dir / relative
     if not path.is_file():
@@ -167,6 +193,7 @@ async def make_primary(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> FileAsset:
     asset = await load_asset(db, auth.user.household_id, asset_id)
+    await ensure_asset_access(db, auth, asset)
     if auth.user.role == UserRole.CHILD and asset.uploaded_by_id != auth.user.id:
         raise HTTPException(status_code=403, detail="Нет права менять этот файл")
     await db.execute(
@@ -192,6 +219,7 @@ async def delete_file(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> Message:
     asset = await load_asset(db, auth.user.household_id, asset_id)
+    await ensure_asset_access(db, auth, asset)
     if auth.user.role == UserRole.CHILD and asset.uploaded_by_id != auth.user.id:
         raise HTTPException(status_code=403, detail="Нет права удалить этот файл")
     asset.deleted_at = now_utc()

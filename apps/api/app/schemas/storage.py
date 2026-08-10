@@ -43,7 +43,7 @@ class StorageItemCreate(BaseModel):
     description: str | None = Field(default=None, max_length=10000)
     tags: list[str] = Field(default_factory=list, max_length=100)
     item_status: Literal[
-        "stored", "in_use", "borrowed_temporarily", "lent", "lost", "sold", "discarded"
+        "stored", "in_use", "borrowed_temporarily", "lent", "lost", "sold", "given", "discarded"
     ] = "stored"
     placed_at: date | None = None
     last_used_at: date | None = None
@@ -146,6 +146,7 @@ class StorageTimerExtend(BaseModel):
 class DeleteNodeRequest(BaseModel):
     strategy: Literal["move", "delete"]
     target_node_id: str | None = None
+    file_action: Literal["keep", "delete"] = "keep"
 
     @model_validator(mode="after")
     def move_target(self) -> DeleteNodeRequest:

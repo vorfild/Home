@@ -11,6 +11,7 @@ from app.api.dependencies.auth import AuthContext, csrf_auth, current_auth
 from app.core.security import opaque_token
 from app.db.session import get_db_session
 from app.models.identity import User, UserRole
+from app.models.lifecycle import TrashEntry
 from app.models.storage import StorageItem, StorageNode
 from app.schemas.common import Message
 from app.schemas.storage import (
@@ -496,9 +497,25 @@ async def delete_node(
             item.location_since = now_utc()
         subtree = {node.id}
     deleted_at = now_utc()
+    item_ids = list(
+        await db.scalars(select(StorageItem.id).where(StorageItem.node_id.in_(subtree)))
+    )
     for candidate in nodes:
         if candidate.id in subtree:
             candidate.deleted_at = deleted_at
             candidate.purge_after = deleted_at + timedelta(days=30)
+    db.add(
+        TrashEntry(
+            household_id=auth.user.household_id,
+            entity_type="storage_node",
+            entity_id=node.id,
+            title=node.name,
+            deleted_by_id=auth.user.id,
+            deleted_at=deleted_at,
+            purge_after=deleted_at + timedelta(days=30),
+            file_action=payload.file_action,
+            previous_state={"node_ids": sorted(subtree), "item_ids": item_ids},
+        )
+    )
     await db.commit()
     return Message(message="Раздел помещён в корзину на 30 дней")
